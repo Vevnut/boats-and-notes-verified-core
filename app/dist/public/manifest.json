@@ -1,0 +1,26 @@
+{
+  "name": "Boats and Notes",
+  "short_name": "Boats and Notes",
+  "description": "Marina customer and boat database",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f4f6",
+  "theme_color": "#076579",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "utilities"],
+  "screenshots": []
+}

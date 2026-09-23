@@ -1,0 +1,20 @@
+# Keep operational records and credentials out of this core-only repository.
+**/node_modules/
+**/test-data/
+**/uploads/
+**/qa/
+**/.env
+**/.env.*
+!**/.env.example
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+**/*.db-*
+**/*.log
+**/.DS_Store
+**/.vercel/
+**/*.pem
+**/*.key
+
+# The baseline compiled app is deliberately tracked alongside editable source.
+# app/.gitignore continues to ignore newly generated dist files by default.
