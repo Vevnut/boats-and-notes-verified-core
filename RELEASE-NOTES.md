@@ -18,4 +18,6 @@ The recovery build also passed representative customer and work-order edits, pho
 - SHA-256: `8a09f03a9e6564f67c6385246ec6e17ae5f09c5eb679f4830cd2be92cb08b954`
 - Original recovery source commit: `5b893956288332fba8ebd29d0205f7d457371bb2`
 
+The GitHub release attachment upload was rejected, so the exact portable ZIP is stored in the repository's `recovery` folder on `main`. GitHub's automatically generated source-code ZIP/tarball represents the tagged repository snapshot and is a different archive with a different checksum. The dated tag preserves the app baseline; a subsequent documentation/archive commit adds the portable ZIP without changing the app.
+
 This release remains an isolated test core. It is not production hosting, a backup of real customer records, or an automatic backup of future edits.
