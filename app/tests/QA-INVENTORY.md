@@ -70,3 +70,24 @@ installing the Supabase CA certificate. Subsequent work-order edits returned 412
 - Type check, build, connection diagnostics, native ESM checks, and all 11
   disposable-database regression groups passed.
 - No production customer records will be edited by these tests.
+
+## Paid flag and status controls
+
+- Reproduced a separate paid-toggle failure in the real browser: boolean `true`
+  sent to the existing integer `service_records.paid` column produces HTTP 500.
+  Normalize booleans to 1/0 on create and update, without changing the schema.
+- Preserve existing numeric API responses and compatibility with numeric inputs.
+- Expose the actual save error in the work-order and job-line error toast.
+- Test paid/unpaid toggles, creation with paid=true, and all work-order status
+  transitions with database readback and status history.
+- Status succeeded locally before this change. The user's current live status
+  error has not yet been identified; request the exact message rather than
+  claiming that the paid conversion resolves every reported failure.
+- User screenshot confirmed the integer `"true"` error and a retained 412
+  banner, consistent with two separate issues. Whether the 412 came from an
+  older open client must be checked by loading a fresh production page.
+- All 12 regression groups, type check, build, and native ESM checks passed.
+  Real desktop browser controls toggled paid/unpaid, progressed through all
+  statuses to Invoiced, and preserved paid/status after reload and sign-in.
+  Phone-sized browser toggled unpaid/paid without a failure banner or overflow;
+  screenshots visually reviewed.

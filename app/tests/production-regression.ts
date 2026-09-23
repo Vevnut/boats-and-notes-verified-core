@@ -87,6 +87,26 @@ try {
   assert.equal(savedLine.title, "Updated QA line"); assert.equal(savedLine.flatRate, 275);
   assert.equal((await call(`/api/wo-jobs/${line.id}`, "PATCH", { title: "Stale line" }, crypto.randomUUID(), line._version)).status, 409);
   pass("Work-order and job edits save with custom version header; old receipts replay and stale/missing/conflicting versions stay blocked");
+  for (const paid of [true, false, true, false]) {
+    const beforePaid = (await call(workRoute)).data;
+    const result = await call(workRoute, "PATCH", { paid }, crypto.randomUUID(), beforePaid._version);
+    assert.equal(result.status, 200, JSON.stringify(result.data));
+    assert.equal(result.data.paid, Number(paid));
+    assert.equal((await call(workRoute)).data.paid, Number(paid));
+  }
+  const initiallyPaid = await call(`/api/boats/${boat.data.id}/service`, "POST", {
+    date: "2026-09-23", description: "Created paid QA", paid: true,
+  });
+  assert.equal(initiallyPaid.status, 201); assert.equal(initiallyPaid.data.paid, 1);
+  const initialHistory = (await call(`${workRoute}/status-history`)).data.length;
+  for (const status of ["waiting_on_parts", "ready_for_pickup", "complete", "invoiced", "open"]) {
+    const beforeStatus = (await call(workRoute)).data;
+    const result = await call(workRoute, "PATCH", { status }, crypto.randomUUID(), beforeStatus._version);
+    assert.equal(result.status, 200, JSON.stringify(result.data));
+    assert.equal((await call(workRoute)).data.status, status);
+  }
+  assert.equal((await call(`${workRoute}/status-history`)).data.length, initialHistory + 5);
+  pass("Paid/unpaid booleans persist as integer flags; creation with paid=true works; all five work-order status transitions persist with history");
   await admin.query(`CREATE FUNCTION public.qa_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'injected test failure'; END$$;
     CREATE TRIGGER qa_failure BEFORE INSERT ON public.work_order_jobs FOR EACH ROW EXECUTE FUNCTION public.qa_fail();`);
   const before = (await admin.query("SELECT count(*) FROM public.service_records")).rows[0].count;

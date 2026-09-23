@@ -303,7 +303,7 @@ export const storage = {
       tech_notes: data.techNotes ?? null, labor_hours: data.laborHours ?? null,
       cost: data.cost ?? null, status: data.status ?? "open",
       labor_rate: data.laborRate ?? 110, deposit_amount: data.depositAmount ?? null,
-      paid: data.paid ?? 0, due_date: data.dueDate ?? null,
+      paid: typeof data.paid === "boolean" ? Number(data.paid) : data.paid ?? 0, due_date: data.dueDate ?? null,
     }).select().single();
     await logActivity("created", "service", r!.id, `New service record: ${r!.description}`);
     return toSvc(r!);
@@ -316,7 +316,8 @@ export const storage = {
       depositAmount: "deposit_amount", paid: "paid", dueDate: "due_date",
       signatureDataUrl: "signature_data_url", signedBy: "signed_by", signedAt: "signed_at",
     };
-    for (const [k, v] of Object.entries(map)) if (data[k] !== undefined) update[v] = data[k];
+    for (const [k, v] of Object.entries(map)) if (data[k] !== undefined)
+      update[v] = k === "paid" && typeof data[k] === "boolean" ? Number(data[k]) : data[k];
     const { data: r } = await supabase.from("service_records").update(update).eq("id", id).select().single();
     if (r) await logActivity("updated", "service", id, `Updated service: ${r.description}`);
     return r ? toSvc(r) : undefined;

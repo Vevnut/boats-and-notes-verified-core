@@ -1015,7 +1015,7 @@ function JobLineCard({
       queryClient.invalidateQueries({ queryKey: ["/api/service", serviceId, "jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/service", serviceId, "parts"] });
     },
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Failed to save", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -1330,7 +1330,7 @@ export default function WorkOrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({ title: "Saved" });
     },
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Failed to save", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
