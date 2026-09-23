@@ -1,4 +1,4 @@
-import supabase from "./supabase";
+import supabase from "./supabase.js";
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 // Map Supabase snake_case rows to camelCase objects the rest of the app uses

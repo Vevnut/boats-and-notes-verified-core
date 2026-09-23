@@ -1,6 +1,6 @@
 # Boats and Notes: production preparation
 
-Prepared September 23, 2026. This is a deployment candidate, not a live production deployment.
+Updated September 23, 2026. The owner approved merging this version into `main` and deploying through Vercel. Hosted acceptance testing is still in progress; do not treat the database connection or saving as verified yet.
 The original app, reviewed test copy, original GitHub baseline tag and customer records are preserved.
 
 ## What has changed
@@ -25,6 +25,7 @@ TypeScript checking, production build, and ten regression groups passed against 
 Browser tests use a local disposable database and mocked authentication, not the owner's real password.
 They are not proof that the final Vercel host can connect to Supabase.
 Browser checks confirmed customer creation, a visible failed-save error with retained inputs, successful retry, draft recovery after reloading and signing back in, backup download, sign-out, and desktop/mobile layouts. The local database was PostgreSQL 18; the actual Supabase connection and Vercel runtime still need acceptance testing.
+The first hosted build exposed a native Node ESM import-resolution error. Server imports now use explicit emitted `.js` paths, and `npm run test:runtime` verifies the separately compiled API entry, health/config endpoints, and anonymous-access rejection without a database connection.
 
 ## Database preparation completed
 
@@ -59,13 +60,12 @@ The connection string above is the server-only secret still needed.
 
 ### Use the correct code revision
 
-The preparation branch is `production-prep-2026-09-23` in the existing private repository.
-Do not deploy the older `main` baseline by mistake. Review/merge the prepared branch before importing `main`, or explicitly select the preparation branch.
-The original baseline tag remains untouched.
+The prepared version was merged into `main` with the owner's approval through [pull request #1](https://github.com/Vevnut/boats-and-notes-verified-core/pull/1). Follow-up runtime and wording fixes are on `main`. Use `main` for the current deployment, not the older preparation-branch head. The original baseline tag remains untouched.
 
 For Vercel:
 
-- Project name: `boats-and-notes`
+- Existing Vercel project name: `app`
+- Existing hosted address: [Boats and Notes](https://app-tau-ashy-29.vercel.app/)
 - Root directory: `app`
 - Framework: Vite
 - Build command: `npm run build`

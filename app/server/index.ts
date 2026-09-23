@@ -1,12 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "node:http";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
-import { installReliability } from "./reliability";
-import { authenticate } from "./auth";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config";
-import { current, database, sql, tables } from "./postgres";
+import { registerRoutes } from "./routes.js";
+import { serveStatic } from "./static.js";
+import { installReliability } from "./reliability.js";
+import { authenticate } from "./auth.js";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
+import { current, database, sql, tables } from "./postgres.js";
 
 declare module "http" { interface IncomingMessage { rawBody: unknown; } }
 export function log(message: string, source = "express") { console.log(`[${source}] ${message}`); }

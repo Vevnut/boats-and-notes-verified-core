@@ -10,7 +10,8 @@
     "start": "NODE_ENV=production node dist/index.mjs",
     "check": "tsc",
     "test:saving": "tsx tests/production-regression.ts",
-    "test:production": "npm run check && npm run build && npm run test:saving"
+    "test:runtime": "node tests/check-runtime.mjs",
+    "test:production": "npm run check && npm run build && npm run test:runtime && npm run test:saving"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

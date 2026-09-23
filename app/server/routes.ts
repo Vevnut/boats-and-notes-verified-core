@@ -1,16 +1,16 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "http";
-import { storage } from "./storage";
-import supabase from "./supabase";
+import { storage } from "./storage.js";
+import supabase from "./supabase.js";
 import type { Browser } from "playwright-core";
-import { launchPdfBrowser } from "./browser";
-import { renderWorkOrderPdfHtml } from "./pdf-template";
+import { launchPdfBrowser } from "./browser.js";
+import { renderWorkOrderPdfHtml } from "./pdf-template.js";
 import { SquareClient, SquareEnvironment } from "square";
 import {
   insertCustomerSchema, insertBoatSchema, insertServiceRecordSchema,
   insertPartSchema, insertLaborCodeSchema, insertPartsCatalogSchema,
   insertWorkOrderTemplateSchema,
-} from "@shared/schema";
+} from "../shared/schema.js";
 
 // Reserved for a future separately authorized payment integration.
 // Production middleware currently blocks all Square routes.

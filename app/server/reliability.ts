@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createHash } from "node:crypto";
-import { context, current, getPool, recordVersion, sql } from "./postgres";
+import { context, current, getPool, recordVersion, sql } from "./postgres.js";
 
 const collections: Record<string, string> = {
   customers: "customers", boats: "boats", service: "service_records", jobs: "service_records",

@@ -3,6 +3,7 @@
 Scope: preserve the tested app, replace sandbox persistence, prepare Vercel deployment.
 
 - Type-check and production build, including the Vercel function entry.
+- Native ESM runtime check: separately transpiled API entry imports successfully; health/config respond and records reject anonymous access. Added after the actual Vercel runtime exposed extensionless server imports.
 - PostgreSQL: CRUD, typed IDs/dates/booleans, generated defaults, FK behavior.
 - Saving: concurrent retry, stale edit, rollback on injected failure, receipt on new instance.
 - Draft recovery: newest sequence wins; discarded draft cannot resurrect.

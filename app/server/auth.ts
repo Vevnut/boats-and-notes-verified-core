@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
 import type { RequestHandler } from "express";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, OWNER_ID } from "./config";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, OWNER_ID } from "./config.js";
 const auth = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   realtime: { transport: WebSocket as any },

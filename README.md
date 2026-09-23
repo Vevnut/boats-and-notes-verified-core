@@ -1,8 +1,8 @@
 # Boats and Notes: verified core
 
-## Production preparation branch
+## Production version
 
-This branch prepares the app for Vercel + Supabase. It is not deployed. Start with [the production setup guide](app/PRODUCTION-SETUP.md), not the historical quick start below. The approved additive saving-protection migration has been applied; the production app still needs its server-only database connection and real-host acceptance testing. It requires owner sign-in and does not create sample records or use SQLite.
+The owner approved merging the prepared Vercel + Supabase app into `main`. Hosted acceptance testing is in progress. Start with [the production setup guide](app/PRODUCTION-SETUP.md), not the historical quick start below. The approved additive saving-protection migration has been applied; the actual server-only database connection and hosted saving still require verification. The app requires owner sign-in and does not create sample records or use SQLite.
 
 Generated `app/dist` output is no longer tracked on this branch; Vercel builds it from source. The baseline tag and recovery archive below remain unchanged. `SHA256SUMS.txt` verifies the original baseline only, not this modified production tree. Use the archive or baseline tag when following the historical recovery instructions.
 
