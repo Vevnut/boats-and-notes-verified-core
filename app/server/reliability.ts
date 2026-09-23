@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createHash } from "node:crypto";
 import { context, current, getPool, recordVersion, sql } from "./postgres.js";
+import { databaseConnectionFailure } from "./database-errors.js";
 
 const collections: Record<string, string> = {
   customers: "customers", boats: "boats", service: "service_records", jobs: "service_records",
@@ -36,7 +37,11 @@ export function installReliability(app: Express) {
   app.use("/api", async (req: Request, res: Response, next: NextFunction) => {
     let client;
     try { client = await getPool().connect(); }
-    catch { return res.status(503).json({ error: "The permanent database is unavailable or not configured. No save was confirmed." }); }
+    catch (error) {
+      const failure = databaseConnectionFailure(error);
+      console.error(`[database] ${failure.code}`);
+      return res.status(503).json(failure);
+    }
     const owner = res.locals.owner as string;
     context.run({ client, owner, versions: new Map() }, async () => {
       const path = req.originalUrl.split("?")[0];

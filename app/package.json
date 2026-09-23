@@ -11,7 +11,8 @@
     "check": "tsc",
     "test:saving": "tsx tests/production-regression.ts",
     "test:runtime": "node tests/check-runtime.mjs",
-    "test:production": "npm run check && npm run build && npm run test:runtime && npm run test:saving"
+    "test:connection": "tsx tests/database-errors.ts",
+    "test:production": "npm run check && npm run build && npm run test:runtime && npm run test:connection && npm run test:saving"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

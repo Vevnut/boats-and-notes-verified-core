@@ -11,7 +11,7 @@ import ts from "typescript";
 // resolution against separately emitted files, as the Vercel runtime does.
 // No database connection, owner credentials, or record writes are used.
 const root = await mkdtemp(join(tmpdir(), "boats-notes-runtime-"));
-let server;
+let server, diagnosticServer;
 process.env.VERCEL = "1";
 delete process.env.DATABASE_URL;
 try {
@@ -47,8 +47,33 @@ try {
   assert.equal(config.status, 200);
   assert.match((await config.json()).supabaseUrl, /^https:\/\//);
   assert.equal((await fetch(`${base}/api/customers`)).status, 401);
+  const { createApp } = await import(pathToFileURL(join(root, "server/index.js")).href);
+  const diagnosticApp = await createApp((_req, res, next) => {
+    res.locals.owner = "local-test-only";
+    next();
+  });
+  diagnosticServer = createServer(diagnosticApp);
+  diagnosticServer.listen(0, "127.0.0.1");
+  await once(diagnosticServer, "listening");
+  const diagnosticBase = `http://127.0.0.1:${diagnosticServer.address().port}`;
+  for (const [setting, expected] of [
+    ["", "DB_SETTING_MISSING"], ["not-a-url", "DB_SETTING_INVALID"],
+    ["https://fake-host/db", "DB_SETTING_INVALID"],
+    ["postgresql://user:fake#secret@fake-host/db", "DB_SETTING_INVALID"],
+  ]) {
+    process.env.DATABASE_URL = setting;
+    const response = await fetch(`${diagnosticBase}/api/customers`);
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.equal(body.code, expected);
+    assert.match(body.error, /No save was confirmed/);
+    assert.ok(!JSON.stringify(body).includes("fake"));
+  }
+  delete process.env.DATABASE_URL;
   console.log("PASS Native ESM startup, health, public config, and unauthenticated record protection");
+  console.log("PASS authenticated missing/invalid connection settings fail safely without connecting");
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
+  if (diagnosticServer) await new Promise(resolve => diagnosticServer.close(resolve));
   await rm(root, { recursive: true, force: true });
 }

@@ -22,8 +22,15 @@ export const context = new AsyncLocalStorage<{
 let pool: pg.Pool | undefined;
 export function getPool() {
   if (pool) return pool;
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
-  const url = new URL(process.env.DATABASE_URL);
+  if (!process.env.DATABASE_URL) throw Object.assign(new Error("Database setting missing"), { code: "BN_DB_MISSING" });
+  let url: URL;
+  try {
+    url = new URL(process.env.DATABASE_URL);
+    if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.hash)
+      throw new Error("Invalid database address");
+  } catch {
+    throw Object.assign(new Error("Database setting invalid"), { code: "BN_DB_INVALID" });
+  }
   const local = ["127.0.0.1", "localhost"].includes(url.hostname) && !process.env.VERCEL;
   // Do not let URL options silently disable certificate verification.
   for (const key of ["sslmode", "sslcert", "sslkey", "sslrootcert"]) url.searchParams.delete(key);

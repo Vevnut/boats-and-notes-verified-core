@@ -35,3 +35,14 @@ Mocked Supabase calls in the local browser, without sending email or changing an
 - Desktop request screen and mobile reset form were visually checked.
 
 Real email delivery, the user's new password, and the authenticated production database connection still require the user's end-to-end check.
+
+## Connection diagnostics
+
+After the user reported accepted app authentication followed by a database connection failure:
+
+- Added fixed safe error categories for missing/invalid settings, rejected database credentials, pooler identity, certificate verification, DNS, timeout, network, and connection limits.
+- Never return or log driver messages, stacks, database addresses, or secrets. Unit tests include secret-bearing errors, nested causes, aggregates, and cycles.
+- Native ESM integration checks cover authenticated requests with missing and invalid database settings. Anonymous requests still receive 401.
+- Certificate verification remains required. No environment variables, database passwords, schema, or production records were changed.
+- Type checking, production build, connection tests, native ESM checks, and all 10 disposable-database saving regression groups passed.
+- This improves diagnosis only. The actual Vercel-to-Supabase connection is not yet verified.
