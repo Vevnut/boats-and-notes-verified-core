@@ -665,7 +665,7 @@ export default function PartsCatalogPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled title="External product imports are disconnected in this test copy." data-testid="button-import-url">
+            <Button variant="outline" size="sm" disabled title="External product imports are not enabled." data-testid="button-import-url">
               <Link size={14} className="mr-1" /> Import disabled
             </Button>
             <Button onClick={openNew} size="sm" data-testid="button-add-part">
