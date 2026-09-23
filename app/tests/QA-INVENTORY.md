@@ -20,3 +20,18 @@ Not signoff: real-owner sign-in, actual Supabase pooler TLS connection, Vercel d
 customer import, automated backups, and a restore drill. These require remaining setup.
 
 The approved additive migration was applied to the real BoatsandNotes Supabase project on September 23, 2026. Read-only verification confirmed the three empty recovery tables, owner policies, and existing public-table/sequence access permissions. No real customer data was written during testing.
+
+## App-password recovery checks
+
+Mocked Supabase calls in the local browser, without sending email or changing any real password:
+
+- Forgot-password control preserves the entered email; reset request uses the current app origin as the redirect.
+- Opening a recovery link as a new document verifies its session and removes the credential fragment from the address bar.
+- Mismatched new passwords are rejected without an update request.
+- Matching passwords generate one update request, followed by local sign-out and a clear success message.
+- Recovery credentials remain absent from localStorage and sessionStorage.
+- Expired links show a recovery-request form and remove the error fragment.
+- Invalid app credentials remain distinct from an accepted sign-in followed by a database error.
+- Desktop request screen and mobile reset form were visually checked.
+
+Real email delivery, the user's new password, and the authenticated production database connection still require the user's end-to-end check.

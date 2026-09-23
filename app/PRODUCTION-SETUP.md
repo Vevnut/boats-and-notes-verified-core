@@ -26,6 +26,15 @@ Browser tests use a local disposable database and mocked authentication, not the
 They are not proof that the final Vercel host can connect to Supabase.
 Browser checks confirmed customer creation, a visible failed-save error with retained inputs, successful retry, draft recovery after reloading and signing back in, backup download, sign-out, and desktop/mobile layouts. The local database was PostgreSQL 18; the actual Supabase connection and Vercel runtime still need acceptance testing.
 The first hosted build exposed a native Node ESM import-resolution error. Server imports now use explicit emitted `.js` paths, and `npm run test:runtime` verifies the separately compiled API entry, health/config endpoints, and anonymous-access rejection without a database connection.
+After that fix deployed, the live health/config endpoints returned HTTP 200 and anonymous record access returned HTTP 401. The health result confirms a connection setting is present, not that the database password or TLS connection works.
+
+## App sign-in and password recovery
+
+The Boats and Notes app password is separate from the Supabase project database password, the Supabase website login, and Vercel login.
+
+The sign-in screen includes **Forgot app password?**. Enter the existing app-account email, request the recovery email, open its newest link, and set a new app password of at least 12 characters. The recovery screen verifies the Supabase session and keeps its temporary credentials in memory only. It does not modify the project's database password or business records.
+
+The user reported adding `https://app-tau-ashy-29.vercel.app/` to Supabase Authentication's allowed Redirect URLs while keeping the existing URLs and Site URL unchanged. Email delivery and the real password update have not been verified by automated tests. The recovery flow follows [Supabase's password-recovery API](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail) and [redirect configuration](https://supabase.com/docs/guides/auth/redirect-urls).
 
 ## Database preparation completed
 
