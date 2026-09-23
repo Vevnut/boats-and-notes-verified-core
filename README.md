@@ -1,5 +1,13 @@
 # Boats and Notes: verified core
 
+## Production preparation branch
+
+This branch prepares the app for Vercel + Supabase. It is not deployed. Start with [the production setup guide](app/PRODUCTION-SETUP.md), not the historical quick start below. The approved additive saving-protection migration has been applied; the production app still needs its server-only database connection and real-host acceptance testing. It requires owner sign-in and does not create sample records or use SQLite.
+
+Generated `app/dist` output is no longer tracked on this branch; Vercel builds it from source. The baseline tag and recovery archive below remain unchanged. `SHA256SUMS.txt` verifies the original baseline only, not this modified production tree. Use the archive or baseline tag when following the historical recovery instructions.
+
+## Historical recovery baseline
+
 This private repository preserves the functioning Boats and Notes core reviewed and approved on September 23, 2026. It is a recovery baseline, not a production deployment or customer-data backup.
 
 ## Recovery checkpoint

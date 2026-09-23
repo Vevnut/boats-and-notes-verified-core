@@ -1,0 +1,8 @@
+tests/
+TEST-COPY.md
+SAVING-RELIABILITY.md
+test-data/
+qa/
+*.sqlite*
+*.log
+.env*

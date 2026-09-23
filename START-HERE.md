@@ -1,5 +1,7 @@
 # Boats and Notes: functioning core backup
 
+Production-branch notice: the instructions below describe the original recovery archive and baseline tag, not this branch's current app. For the prepared Vercel + Supabase version, use [app/PRODUCTION-SETUP.md](app/PRODUCTION-SETUP.md). The original archive and tag are preserved.
+
 This is a portable recovery checkpoint of the functioning isolated app that you reviewed and approved. It preserves the app itself, not your customer records, and does not depend on the preview URL remaining available.
 
 ## What is preserved

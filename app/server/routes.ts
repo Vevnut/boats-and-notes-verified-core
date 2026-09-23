@@ -2,7 +2,8 @@ import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import supabase from "./supabase";
-import { chromium, type Browser } from "playwright-core";
+import type { Browser } from "playwright-core";
+import { launchPdfBrowser } from "./browser";
 import { renderWorkOrderPdfHtml } from "./pdf-template";
 import { SquareClient, SquareEnvironment } from "square";
 import {
@@ -11,9 +12,10 @@ import {
   insertWorkOrderTemplateSchema,
 } from "@shared/schema";
 
-// Square config — token injected via credential proxy in production
-const SQUARE_TOKEN = process.env.CUSTOM_CRED_CONNECT_SQUAREUP_COM_TOKEN || process.env.SQUARE_ACCESS_TOKEN || "";
-const SQUARE_PROXY_URL = process.env.CUSTOM_CRED_CONNECT_SQUAREUP_COM_URL || "";
+// Reserved for a future separately authorized payment integration.
+// Production middleware currently blocks all Square routes.
+const SQUARE_TOKEN = process.env.SQUARE_ACCESS_TOKEN || "";
+const SQUARE_PROXY_URL = "";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L39MMMQ9JR59T";
 const SQUARE_ENV = (process.env.SQUARE_ENVIRONMENT || "production") === "production" ? SquareEnvironment.Production : SquareEnvironment.Sandbox;
 const SQUARE_API_BASE = SQUARE_ENV === SquareEnvironment.Production
@@ -22,9 +24,13 @@ const SQUARE_API_BASE = SQUARE_ENV === SquareEnvironment.Production
 
 // ─── Shared Playwright browser singleton (lazy init, reused across PDF requests) ────────────────
 let sharedBrowser: Browser | null = null;
+export async function closePdfBrowser() {
+  await sharedBrowser?.close();
+  sharedBrowser = null;
+}
 async function getSharedBrowser(): Promise<Browser> {
   if (sharedBrowser && sharedBrowser.isConnected()) return sharedBrowser;
-  sharedBrowser = await chromium.launch({ headless: true });
+  sharedBrowser = await launchPdfBrowser();
   sharedBrowser.on("disconnected", () => { sharedBrowser = null; });
   return sharedBrowser;
 }
@@ -36,9 +42,6 @@ async function isolatedPdfPage(browser: Browser) {
     return ["data:", "blob:", "about:"].includes(protocol) ? route.continue() : route.abort();
   });
   return page;
-}
-function markSampleHtml(html: string) {
-  return html.replace(/<body([^>]*)>/i, '<body$1><div style="padding:8px;text-align:center;font:700 12px sans-serif;background:#fff3ce;color:#684300">SAMPLE DATA · ISOLATED TEST COPY · NOT A REAL INVOICE</div>');
 }
 
 export async function registerRoutes(httpServer: Server, app: Express) {
@@ -852,9 +855,9 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     if (!html) { res.status(400).json({ error: "html required" }); return; }
     let browser;
     try {
-      browser = await chromium.launch({ headless: true });
+      browser = await launchPdfBrowser();
       const page = await isolatedPdfPage(browser);
-      await page.setContent(markSampleHtml(html), { waitUntil: "networkidle" });
+      await page.setContent(html, { waitUntil: "networkidle" });
       const pdfBuffer = await page.pdf({
         format: "Letter",
         printBackground: true,
@@ -972,7 +975,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const browser = await getSharedBrowser();
       const page = await isolatedPdfPage(browser);
       try {
-        await page.setContent(markSampleHtml(html), { waitUntil: "networkidle" });
+        await page.setContent(html, { waitUntil: "networkidle" });
         const pdfBuffer = await page.pdf({
           format: "Letter",
           printBackground: true,

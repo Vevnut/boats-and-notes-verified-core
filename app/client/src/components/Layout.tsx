@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import GlobalSearchDialog from "@/components/GlobalSearch";
 import { useKeybind } from "@/lib/keybind-provider";
-import TestBanner from "./TestBanner";
+import SaveStatus from "./SaveStatus";
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
 const NAV_GROUPS = [
@@ -184,7 +184,7 @@ function Sidebar({ onClose, onOpenSearch }: { onClose?: () => void; onOpenSearch
       {/* Footer */}
       <div className="px-3 py-3 border-t border-sidebar-border flex items-center gap-1">
         <button
-          onClick={async () => { const response = await apiRequest("GET", "/api/export/csv"); const url = URL.createObjectURL(await response.blob()); const a = document.createElement("a"); a.href = url; a.download = "sample-boats-and-notes.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000); }}
+          onClick={async () => { const response = await apiRequest("GET", "/api/export/csv"); const url = URL.createObjectURL(await response.blob()); const a = document.createElement("a"); a.href = url; a.download = "boats-and-notes.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000); }}
           className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           title="Export all data"
         >
@@ -239,7 +239,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // Print pages render without the sidebar shell
   if (location.includes("/print/")) {
-    return <><div className="test-print-label">SAMPLE DATA · ISOLATED TEST COPY · NOT A REAL INVOICE</div>{children}</>;
+    return <>{children}</>;
   }
 
   return (
@@ -278,7 +278,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main content area ── */}
       <div className="flex-1 flex flex-col lg:ml-52 xl:ml-56 min-w-0">
-        <TestBanner />
+        <SaveStatus />
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 bg-card/90 backdrop-blur-sm border-b border-border h-12 flex items-center px-3 gap-2">
           <button

@@ -122,7 +122,7 @@ function printWorkOrderCustomer(job: OpenJob) {
   const laborCost = (job.laborHours ?? 0) * (job.laborRate ?? 110);
   const woNum = `WO-${String(job.id).padStart(4, "0")}`;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${woNum}</title>
-  <style>${SHARED_CSS}</style></head><body><div style="padding:8px;text-align:center;font:700 12px sans-serif">SAMPLE DATA - TEST COPY - NOT A REAL INVOICE</div><div class="page">
+  <style>${SHARED_CSS}</style></head><body><div class="page">
     <div class="header-band">
       <div>
         <div class="brand-name">Bradley's Boat Care</div>
@@ -204,7 +204,7 @@ function printWorkOrderTech(job: OpenJob) {
       color: #076579; margin-bottom: 8px; }
   `;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${woNum} — Tech Copy</title>
-  <style>${SHARED_CSS}${techCSS}</style></head><body><div style="padding:8px;text-align:center;font:700 12px sans-serif">SAMPLE DATA - TEST COPY - NOT A REAL INVOICE</div><div class="page">
+  <style>${SHARED_CSS}${techCSS}</style></head><body><div class="page">
     <div class="tech-banner">Technician Copy — Internal Use Only</div>
     <div class="header-band">
       <div>

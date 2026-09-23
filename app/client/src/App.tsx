@@ -25,6 +25,7 @@ import PageTransition from "@/components/PageTransition";
 import { KeybindProvider } from "@/lib/keybind-provider";
 import KeybindCheatSheet from "@/components/KeybindCheatSheet";
 import KeybindHint from "@/components/KeybindHint";
+import AuthGate from "@/components/AuthGate";
 
 function App() {
   const [splashDone, setSplashDone] = useState(false);
@@ -32,6 +33,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthGate>
       {!splashDone && <SplashScreen onDone={handleSplashDone} />}
       <KeybindProvider>
         <Router hook={useHashLocation}>
@@ -61,6 +63,7 @@ function App() {
         <KeybindHint />
       </KeybindProvider>
       <Toaster />
+      </AuthGate>
     </QueryClientProvider>
   );
 }

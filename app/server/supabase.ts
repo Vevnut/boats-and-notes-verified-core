@@ -1,3 +1,3 @@
-// Compatibility name only. This module NEVER connects to Supabase.
-// All recovered storage calls are executed against a sandbox-only SQLite file.
-export { sandboxDatabase as default } from "./test-database";
+// Compatibility facade for the recovered storage layer.
+// Every query now executes in the authenticated PostgreSQL request transaction.
+export { database as default } from "./postgres";
