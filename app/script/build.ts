@@ -48,11 +48,12 @@ async function buildAll() {
   const allExternals = [...new Set([...externals, ...forceExternal])];
 
   await esbuild({
-    entryPoints: ["server/index.ts"],
+    entryPoints: ["server/local.ts"],
     platform: "node",
     bundle: true,
-    format: "cjs",
-    outfile: "dist/index.cjs",
+    packages: "external",
+    format: "esm",
+    outfile: "dist/index.mjs",
     define: {
       "process.env.NODE_ENV": '"production"',
     },

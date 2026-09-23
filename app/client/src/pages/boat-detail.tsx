@@ -224,7 +224,7 @@ function printInvoice(service: ServiceRecord, parts: Part[], boat: Boat, custome
       background: ${service.paid ? "#d1fae5" : "#fef3c7"}; color: ${service.paid ? "#065f46" : "#92400e"}; }
     @media print { body { margin: 20px; } }
   </style></head><body>
-  <div style="border:2px solid #b45309;padding:10px;margin-bottom:20px;font-weight:bold">ISOLATED TEST COPY · SAMPLE DATA ONLY · NOT A REAL INVOICE</div>
+
   <div class="header">
     <div><h1>Bradley's Boat Care</h1><div class="sub">Marine Service &amp; Repair</div><div class="sub" style="margin-top:4px">(603) 273-2491 &nbsp;&bull;&nbsp; BradleysBoatCare@gmail.com</div></div>
     <div style="text-align:right"><div style="font-size:18px;font-weight:700">INVOICE</div>

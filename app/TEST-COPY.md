@@ -1,5 +1,7 @@
 # Boats and Notes isolated test copy
 
+Historical notes only. The current production-preparation branch uses PostgreSQL, has no sample seeding or reset controls, and is documented in [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md). These notes describe the earlier isolated test copy.
+
 This is a separate recovery candidate based on the retrieved July 28 source. Preserve the layout and workflows while comparing against the user's current app. This is not production software.
 
 ## Isolation

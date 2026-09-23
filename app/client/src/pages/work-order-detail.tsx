@@ -1,3 +1,4 @@
+import EditableField from "@/components/ProtectedField";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import {
@@ -427,7 +428,7 @@ async function printCustomer(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJ
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Copy \u2014 ${woNum}</title>
 <style>${CUSTOMER_CSS}</style></head>
-<body><div style="padding:8px;text-align:center;font:700 12px sans-serif">SAMPLE DATA - TEST COPY - NOT A REAL INVOICE</div><div class="page">
+<body><div class="page">
 
   <div class="banner">Customer Copy</div>
 
@@ -531,7 +532,7 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Customer Copy — ${woNum}</title>
 <style>${CUSTOMER_CSS}</style></head>
-<body><div style="padding:8px;text-align:center;font:700 12px sans-serif">SAMPLE DATA - TEST COPY - NOT A REAL INVOICE</div><div class="page">
+<body><div class="page">
 
   <div class="banner">Customer Copy</div>
 
@@ -631,7 +632,7 @@ function printTech(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Tech Copy \u2014 ${woNum}</title>
 <style>${TECH_CSS}</style></head>
-<body><div style="padding:8px;text-align:center;font:700 12px sans-serif">SAMPLE DATA - TEST COPY - NOT A REAL INVOICE</div><div class="page">
+<body><div class="page">
 
   <div class="banner banner-tech">Technician Copy \u2014 Internal Use Only</div>
 
@@ -691,59 +692,6 @@ function printTech(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
 }
 
 // ─── Inline editable field ─────────────────────────────────────────────────────
-function EditableField({ label, value, onSave, multiline, type = "text", rows = 3 }: {
-  label: string; value: string | null | undefined; onSave: (v: string) => void;
-  multiline?: boolean; type?: string; rows?: number;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEdit = () => { setDraft(value ?? ""); setEditing(true); };
-  const cancel = () => setEditing(false);
-  const save = () => { onSave(draft); setEditing(false); };
-
-  return (
-    <div className="group">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
-      {editing ? (
-        <div className="space-y-1">
-          {multiline ? (
-            <textarea
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              autoFocus
-              rows={rows}
-              className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          ) : (
-            <Input
-              type={type}
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              autoFocus
-              className="h-8 text-sm"
-              onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
-            />
-          )}
-          <div className="flex gap-1">
-            <Button size="sm" className="h-9 text-xs px-3" onClick={save}><Check size={11} className="mr-0.5" />Save</Button>
-            <Button size="sm" variant="ghost" className="h-9 text-xs px-3" onClick={cancel}>Cancel</Button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={startEdit}
-          className="w-full text-left text-sm text-foreground/80 hover:text-foreground min-h-[44px] rounded px-0.5 -mx-0.5 hover:bg-accent/50 transition-colors"
-          title="Click to edit"
-          style={multiline && value ? { whiteSpace: "pre-wrap", lineHeight: "1.55" } : {}}
-        >
-          {value || <span className="text-muted-foreground italic text-xs">Not set — click to add</span>}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ─── Parts section (for a specific job line OR the whole WO) ──────────────────
 function PartsSection({ serviceId, jobId }: { serviceId: number; jobId?: number }) {
   const { toast } = useToast();
@@ -1061,15 +1009,8 @@ function JobLineCard({
   const [confirmDel, setConfirmDel] = useState(false);
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<WorkOrderJob>) =>
+    mutationFn: (data: any) =>
       apiRequest("PATCH", `/api/wo-jobs/${job.id}`, data).then(r => r.json()),
-    onMutate: (data) => {
-      // Optimistically update the cache so the field doesn't revert while the request is in flight
-      queryClient.setQueryData<WorkOrderJob[]>(
-        ["/api/service", serviceId, "jobs"],
-        old => old?.map(j => j.id === job.id ? { ...j, ...data } : j) ?? old
-      );
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service", serviceId, "jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/service", serviceId, "parts"] });
@@ -1124,7 +1065,7 @@ function JobLineCard({
     <div className="border border-border rounded-xl overflow-hidden" data-testid={`job-card-${job.id}`}>
       {/* Job header */}
       <div
-        className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border"
+        className="flex flex-wrap items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border"
         onClick={(e) => {
           // Modifier+Click (Batch 2.5 addendum): Ctrl+Click duplicates, Alt+Click deletes.
           // Guarded against editable targets inside useClickBind; falls through otherwise.
@@ -1136,11 +1077,10 @@ function JobLineCard({
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {/* Editable title */}
-        <EditableInline
+        <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version} compact label="Job title"
           value={job.title}
-          onSave={v => updateMutation.mutate({ title: v })}
-          className="flex-1 font-semibold text-sm"
-          placeholder="Job title"
+          onSave={(v, options) => updateMutation.mutateAsync({ title: v, __save: options })}
+          className="basis-[calc(100%-2rem)] flex-grow sm:basis-0 sm:flex-1 font-semibold text-sm"
         />
         {/* Status pill */}
         <select
@@ -1188,22 +1128,13 @@ function JobLineCard({
               <>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Hours</p>
-                  <Input
-                    type="number" step="0.25" min="0"
-                    defaultValue={job.laborHours ?? ""}
-                    onBlur={e => updateMutation.mutate({ laborHours: e.target.value ? parseFloat(e.target.value) : 0 })}
-                    className="h-8 text-sm"
-                    placeholder="0.0"
-                  />
+                  <EditableField compact label="Labor hours" type="number" resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
+                    value={String(job.laborHours ?? 0)} onSave={(v, options) => updateMutation.mutateAsync({ laborHours: Number(v), __save: options })} />
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Rate ($/hr)</p>
-                  <Input
-                    type="number" step="5" min="0"
-                    defaultValue={job.laborRate ?? defaultLaborRate}
-                    onBlur={e => updateMutation.mutate({ laborRate: e.target.value ? parseFloat(e.target.value) : defaultLaborRate })}
-                    className="h-8 text-sm"
-                  />
+                  <EditableField compact label="Labor rate" type="number" resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
+                    value={String(job.laborRate ?? defaultLaborRate)} onSave={(v, options) => updateMutation.mutateAsync({ laborRate: Number(v), __save: options })} />
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Labor</p>
@@ -1214,13 +1145,8 @@ function JobLineCard({
               <>
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Flat Rate ($)</p>
-                  <Input
-                    type="number" step="5" min="0"
-                    defaultValue={job.flatRate ?? ""}
-                    onBlur={e => updateMutation.mutate({ flatRate: e.target.value ? parseFloat(e.target.value) : 0 })}
-                    className="h-8 text-sm"
-                    placeholder="0.00"
-                  />
+                  <EditableField compact label="Flat rate" type="number" resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
+                    value={String(job.flatRate ?? 0)} onSave={(v, options) => updateMutation.mutateAsync({ flatRate: Number(v), __save: options })} />
                 </div>
                 <div className="col-span-2" />
               </>
@@ -1229,24 +1155,24 @@ function JobLineCard({
 
           {/* Description + Notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <EditableField
+            <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
               label="Description (customer-facing)"
               value={job.description}
               multiline
-              onSave={v => updateMutation.mutate({ description: v })}
+              onSave={(v, options) => updateMutation.mutateAsync({ description: v, __save: options })}
             />
-            <EditableField
+            <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
               label="Tech Notes (internal)"
               value={job.techNotes}
               multiline
-              onSave={v => updateMutation.mutate({ techNotes: v })}
+              onSave={(v, options) => updateMutation.mutateAsync({ techNotes: v, __save: options })}
             />
-            <EditableField
+            <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
               label="Customer Notes (shows on customer copy)"
               value={job.customerNotes}
               multiline
               rows={6}
-              onSave={v => updateMutation.mutate({ customerNotes: v })}
+              onSave={(v, options) => updateMutation.mutateAsync({ customerNotes: v, __save: options })}
             />
           </div>
 
@@ -1259,40 +1185,6 @@ function JobLineCard({
 }
 
 // ─── Inline editable title (no label, compact) ────────────────────────────────
-function EditableInline({ value, onSave, className, placeholder }: {
-  value: string; onSave: (v: string) => void; className?: string; placeholder?: string;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={() => { onSave(draft); setEditing(false); }}
-        onKeyDown={e => {
-          if (e.key === "Enter") { onSave(draft); setEditing(false); }
-          if (e.key === "Escape") { setDraft(value); setEditing(false); }
-        }}
-        className={`bg-transparent border-b border-primary focus:outline-none ${className}`}
-      />
-    );
-  }
-  return (
-    <button
-      onClick={() => { setDraft(value); setEditing(true); }}
-      className={`group text-left flex items-center gap-1.5 hover:text-primary transition-colors ${className}`}
-      title="Click to rename"
-    >
-      {value || <span className="italic text-muted-foreground text-xs">{placeholder}</span>}
-      <PenLine size={11} className="shrink-0 opacity-0 group-hover:opacity-50 transition-opacity" />
-    </button>
-  );
-}
-
 // ─── Common Job Picker Modal ───────────────────────────────────────────────────
 function CommonJobPicker({ onSelect, onClose }: {
   onSelect: (job: CommonJob) => void;
@@ -1515,7 +1407,6 @@ export default function WorkOrderDetailPage() {
   }, [woJobs, activeJobId, woId]);
   useKeybind("wo.save", () => {
     if (job) updateMutation.mutate({});
-    toast({ title: "Saved" });
   }, [job]);
 
   if (isLoading) {
@@ -1630,11 +1521,17 @@ export default function WorkOrderDetailPage() {
           </Button>
           <Button
             variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs"
-            asChild
+            data-testid="link-server-pdf"
+            onClick={async () => {
+              try {
+                const blob = await (await apiRequest("GET", `/api/work-orders/${woId}/pdf`)).blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `WO-${woId}.pdf`; a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+              } catch (e: any) { toast({ title: "PDF failed", description: e.message, variant: "destructive" }); }
+            }}
           >
-            <a href={apiUrl(`/api/work-orders/${woId}/pdf`)} target="_blank" rel="noopener noreferrer" data-testid="link-server-pdf">
               <FileDown size={14} />Export PDF
-            </a>
           </Button>
           <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => window.print()} data-testid="button-print-wo">
             <Printer size={14} />Print
@@ -1646,7 +1543,7 @@ export default function WorkOrderDetailPage() {
             variant="outline" size="sm"
             className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs border-green-600 text-green-700 hover:bg-green-50"
             disabled={true}
-            title="Payments are disconnected in the isolated test copy."
+            title="Payments are not enabled in this version."
             onClick={async () => {
               if (!job) return;
               setPayLinkLoading(true);
@@ -1824,29 +1721,29 @@ export default function WorkOrderDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EditableField
+              <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                 label="Work Order Description / Summary"
                 value={job.description}
                 multiline
-                onSave={v => updateMutation.mutate({ description: v })}
+                onSave={(v, options) => updateMutation.mutateAsync({ description: v, __save: options })}
               />
-              <EditableField
+              <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                 label="General Tech Notes (internal)"
                 value={job.techNotes}
                 multiline
-                onSave={v => updateMutation.mutate({ techNotes: v })}
+                onSave={(v, options) => updateMutation.mutateAsync({ techNotes: v, __save: options })}
               />
-              <EditableField
+              <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                 label="Created Date"
                 value={job.date}
                 type="date"
-                onSave={v => updateMutation.mutate({ date: v })}
+                onSave={(v, options) => updateMutation.mutateAsync({ date: v, __save: options })}
               />
-              <EditableField
+              <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                 label="Due Date"
                 value={job.dueDate}
                 type="date"
-                onSave={v => updateMutation.mutate({ dueDate: v || null })}
+                onSave={(v, options) => updateMutation.mutateAsync({ dueDate: v || null, __save: options })}
               />
             </div>
           </div>
@@ -1856,7 +1753,7 @@ export default function WorkOrderDetailPage() {
 
           {/* ── Job Lines ── */}
           <div className="bg-card border border-border rounded-xl p-5 no-print">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-sm font-semibold flex items-center gap-2">
                   <ListChecks size={15} className="text-primary" />
@@ -1921,17 +1818,17 @@ export default function WorkOrderDetailPage() {
             <div className="bg-card border border-border rounded-xl p-5 no-print">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Labor</h3>
               <div className="grid grid-cols-2 gap-4">
-                <EditableField
+                <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                   label="Labor Hours"
                   value={job.laborHours != null ? String(job.laborHours) : ""}
                   type="number"
-                  onSave={v => updateMutation.mutate({ laborHours: v !== "" ? parseFloat(v) : null })}
+                  onSave={(v, options) => updateMutation.mutateAsync({ laborHours: v !== "" ? parseFloat(v) : null, __save: options })}
                 />
-                <EditableField
+                <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                   label="Labor Rate ($/hr)"
                   value={job.laborRate != null ? String(job.laborRate) : "110"}
                   type="number"
-                  onSave={v => updateMutation.mutate({ laborRate: v !== "" ? parseFloat(v) : 110 })}
+                  onSave={(v, options) => updateMutation.mutateAsync({ laborRate: v !== "" ? parseFloat(v) : 110, __save: options })}
                 />
               </div>
               {job.laborHours != null && (
@@ -2012,11 +1909,11 @@ export default function WorkOrderDetailPage() {
               )}
             </div>
             <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3">
-              <EditableField
+              <EditableField resource={`/api/service/${woId}`} version={(job as any)._version}
                 label="Deposit Amount"
                 value={job.depositAmount != null ? String(job.depositAmount) : ""}
                 type="number"
-                onSave={v => updateMutation.mutate({ depositAmount: v !== "" ? parseFloat(v) : null })}
+                onSave={(v, options) => updateMutation.mutateAsync({ depositAmount: v !== "" ? parseFloat(v) : null, __save: options })}
               />
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Payment Status</p>

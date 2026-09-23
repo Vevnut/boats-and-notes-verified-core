@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Plus, Search, Phone, Mail, ChevronRight, Trash2, Edit2, X, Anchor, Users } from "lucide-react";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, dismissSaveFailure } from "@/lib/queryClient";
 import { useClickBind } from "@/lib/keybind-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,20 +13,38 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Customer, InsertCustomer } from "@shared/schema";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useRecoveryDraft } from "@/lib/use-recovery-draft";
+import type { SaveOptions } from "@/lib/queryClient";
 
 type CustomerWithCount = Customer & { boatCount: number };
 
-function CustomerForm({ defaultValues, onSubmit, isPending }: {
+function CustomerForm({ defaultValues, onSubmit, onDiscard, isPending }: {
   defaultValues?: Partial<InsertCustomer>;
-  onSubmit: (data: InsertCustomer) => void;
+  onSubmit: (data: InsertCustomer, options: SaveOptions) => Promise<unknown>;
+  onDiscard: () => void;
   isPending: boolean;
 }) {
-  const form = useForm<InsertCustomer>({
-    defaultValues: { name: "", phone: "", email: "", address: "", notes: "", ...defaultValues },
-  });
+  const initial = { name: defaultValues?.name ?? "", phone: defaultValues?.phone ?? "", email: defaultValues?.email ?? "", address: defaultValues?.address ?? "", notes: defaultValues?.notes ?? "" };
+  const draft = useRecoveryDraft(`customer:${(defaultValues as any)?.id ?? "new"}`, initial, (defaultValues as any)?._version);
+  const [saveError, setSaveError] = useState("");
+  const form = useForm<InsertCustomer>({ defaultValues: initial });
+  useEffect(() => { if (draft.ready) form.reset(draft.value); }, [draft.ready]);
+  useEffect(() => {
+    if (!draft.ready) return;
+    const subscription = form.watch(values => draft.change(values as typeof initial));
+    return () => subscription.unsubscribe();
+  }, [draft.ready]);
+  const submit = async (data: InsertCustomer) => {
+    setSaveError("");
+    try { await onSubmit(data, await draft.options()); await draft.clear(true); }
+    catch (error) { setSaveError((error as Error).message); }
+  };
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
+        <fieldset disabled={isPending || !draft.ready} className="space-y-4 min-w-0">
+        {draft.message && <p className="text-xs text-muted-foreground" role="status">{draft.message}</p>}
+        {saveError && <p className="text-sm text-destructive" role="alert">{saveError}</p>}
         <FormField control={form.control} name="name" rules={{ required: "Name is required" }}
           render={({ field }) => (
             <FormItem><FormLabel>Full Name *</FormLabel>
@@ -58,11 +76,14 @@ function CustomerForm({ defaultValues, onSubmit, isPending }: {
             </FormControl>
           </FormItem>
         )} />
-        <div className="flex justify-end pt-2">
-          <Button type="submit" disabled={isPending} data-testid="button-submit-customer">
+        <div className="flex flex-wrap gap-1 justify-end pt-2">
+          {draft.dirty && <Button type="button" variant="ghost" onClick={draft.download}>Download draft</Button>}
+          {draft.dirty && <Button type="button" variant="ghost" onClick={async () => { try { await draft.clear(); await queryClient.invalidateQueries({ queryKey: ["/api/customers"] }); dismissSaveFailure((defaultValues as any)?.id ? `/api/customers/${(defaultValues as any).id}` : "/api/customers"); onDiscard(); } catch { setSaveError("Could not discard the server draft. Reconnect and try again."); } }}>Discard draft</Button>}
+          <Button type="submit" disabled={isPending || !draft.ready} data-testid="button-submit-customer">
             {isPending ? "Saving..." : "Save Customer"}
           </Button>
         </div>
+        </fieldset>
       </form>
     </Form>
   );
@@ -98,17 +119,17 @@ export default function CustomersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { data: customers = [], isLoading } = useQuery<CustomerWithCount[]>({
+  const { data: customers = [], isLoading, isError, refetch } = useQuery<CustomerWithCount[]>({
     queryKey: ["/api/customers", search],
     queryFn: () => apiRequest("GET", search ? `/api/customers?q=${encodeURIComponent(search)}` : "/api/customers").then(r => r.json()),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertCustomer) => apiRequest("POST", "/api/customers", data),
+    mutationFn: ({ data, options }: { data: InsertCustomer; options: SaveOptions }) => apiRequest("POST", "/api/customers", data, options),
     onSuccess: () => { queryClient.refetchQueries({ queryKey: ["/api/customers"], exact: false }); setAddOpen(false); toast({ title: "Customer added" }); },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<InsertCustomer> }) => apiRequest("PATCH", `/api/customers/${id}`, data),
+    mutationFn: ({ id, data, options }: { id: number; data: Partial<InsertCustomer>; options: SaveOptions }) => apiRequest("PATCH", `/api/customers/${id}`, data, options),
     onSuccess: () => { queryClient.refetchQueries({ queryKey: ["/api/customers"], exact: false }); setEditCustomer(null); toast({ title: "Customer updated" }); },
   });
   const deleteMutation = useMutation({
@@ -121,7 +142,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-semibold">Customers</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{customers.length} {customers.length === 1 ? "customer" : "customers"}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{isError ? "Customer list unavailable" : `${customers.length} ${customers.length === 1 ? "customer" : "customers"}`}</p>
         </div>
         <Button onClick={() => setAddOpen(true)} data-testid="button-add-customer">
           <Plus size={16} className="mr-1.5" />Add Customer
@@ -139,7 +160,7 @@ export default function CustomersPage() {
         )}
       </div>
 
-      {isLoading ? (
+      {isError ? <div role="alert" className="border border-destructive rounded-lg p-4"><p>Could not load customers. This does not mean your records are gone.</p><Button onClick={() => refetch()} variant="outline" className="mt-2">Retry loading</Button></div> : isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
       ) : customers.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
@@ -187,8 +208,8 @@ export default function CustomersPage() {
       )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
-          <CustomerForm onSubmit={data => createMutation.mutate(data)} isPending={createMutation.isPending} />
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
+          <CustomerForm onDiscard={() => setAddOpen(false)} onSubmit={(data, options) => createMutation.mutateAsync({ data, options })} isPending={createMutation.isPending} />
         </DialogContent>
       </Dialog>
       <Dialog open={!!deleteCustomer} onOpenChange={o => !o && setDeleteCustomer(null)}>
@@ -210,8 +231,8 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={!!editCustomer} onOpenChange={o => !o && setEditCustomer(null)}>
-        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Edit Customer</DialogTitle></DialogHeader>
-          {editCustomer && <CustomerForm defaultValues={editCustomer} onSubmit={data => updateMutation.mutate({ id: editCustomer.id, data })} isPending={updateMutation.isPending} />}
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Edit Customer</DialogTitle></DialogHeader>
+          {editCustomer && <CustomerForm onDiscard={() => setEditCustomer(null)} defaultValues={editCustomer} onSubmit={(data, options) => updateMutation.mutateAsync({ id: editCustomer.id, data, options })} isPending={updateMutation.isPending} />}
         </DialogContent>
       </Dialog>
     </div>
