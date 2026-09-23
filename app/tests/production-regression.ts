@@ -27,9 +27,9 @@ const base = `http://127.0.0.1:${port}`;
 const auth = { Authorization: "Bearer disposable-test-token" };
 let total = 0;
 const pass = (name: string) => { total++; console.log(`PASS ${name}`); };
-async function call(route: string, method = "GET", body?: any, id = crypto.randomUUID(), version?: string) {
+async function call(route: string, method = "GET", body?: any, id = crypto.randomUUID(), version?: string, versionHeader = "X-Record-Version") {
   const response = await fetch(base + route, {
-    method, headers: { ...auth, "Content-Type": "application/json", "X-Operation-Id": id, ...(version ? { "If-Match": version } : {}) },
+    method, headers: { ...auth, "Content-Type": "application/json", "X-Operation-Id": id, ...(version ? { [versionHeader]: version } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: response.status, replay: response.headers.get("X-Save-Replayed"),
@@ -61,6 +61,32 @@ try {
   const line = (await call(`/api/service/${work.data.id}/jobs`)).data[0];
   assert.equal(line.flatRate, 245.5); assert.ok(line._version);
   pass("Customer, boat, work order and priced job round-trip");
+  const workRoute = `/api/service/${work.data.id}`;
+  const workBefore = (await call(workRoute)).data;
+  assert.ok(workBefore._version);
+  const editId = crypto.randomUUID(), editBody = { techNotes: "Verified work-order notes" };
+  const oldClientEdit = await call(workRoute, "PATCH", editBody, editId, workBefore._version, "If-Match");
+  assert.equal(oldClientEdit.status, 200);
+  const migratedReplay = await call(workRoute, "PATCH", editBody, editId, workBefore._version);
+  assert.equal(migratedReplay.status, 200); assert.equal(migratedReplay.replay, "true");
+  assert.equal(migratedReplay.data._version, oldClientEdit.data._version);
+  const workEdited = await call(workRoute, "PATCH", { description: "Updated QA work order" }, crypto.randomUUID(), oldClientEdit.data._version);
+  assert.equal(workEdited.status, 200);
+  assert.equal((await call(workRoute)).data.techNotes, editBody.techNotes);
+  assert.equal((await call(workRoute, "PATCH", { techNotes: "Stale must not overwrite" }, crypto.randomUUID(), workBefore._version)).status, 409);
+  assert.equal((await call(workRoute, "PATCH", { techNotes: "Missing version must not overwrite" })).status, 409);
+  const conflicting = await fetch(base + workRoute, {
+    method: "PATCH", headers: { ...auth, "Content-Type": "application/json", "X-Operation-Id": crypto.randomUUID(),
+      "X-Record-Version": workEdited.data._version, "If-Match": "different" },
+    body: JSON.stringify({ techNotes: "Conflicting must not overwrite" }),
+  });
+  assert.equal(conflicting.status, 400);
+  const lineEdit = await call(`/api/wo-jobs/${line.id}`, "PATCH", { title: "Updated QA line", flatRate: 275 }, crypto.randomUUID(), line._version);
+  assert.equal(lineEdit.status, 200);
+  const savedLine = (await call(`/api/service/${work.data.id}/jobs`)).data[0];
+  assert.equal(savedLine.title, "Updated QA line"); assert.equal(savedLine.flatRate, 275);
+  assert.equal((await call(`/api/wo-jobs/${line.id}`, "PATCH", { title: "Stale line" }, crypto.randomUUID(), line._version)).status, 409);
+  pass("Work-order and job edits save with custom version header; old receipts replay and stale/missing/conflicting versions stay blocked");
   await admin.query(`CREATE FUNCTION public.qa_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'injected test failure'; END$$;
     CREATE TRIGGER qa_failure BEFORE INSERT ON public.work_order_jobs FOR EACH ROW EXECUTE FUNCTION public.qa_fail();`);
   const before = (await admin.query("SELECT count(*) FROM public.service_records")).rows[0].count;

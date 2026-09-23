@@ -40,7 +40,9 @@ export async function apiRequest(method: string, url: string, data?: any, option
         ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
         ...(data !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(tracked ? { "X-Operation-Id": operation } : {}),
-        ...(tracked && version ? { "If-Match": version } : {}),
+        // Keep record concurrency separate from HTTP cache preconditions.
+        // Vercel evaluates If-Match on successful function responses itself.
+        ...(tracked && version ? { "X-Record-Version": version } : {}),
       },
       body: data !== undefined ? JSON.stringify(data) : undefined,
     });

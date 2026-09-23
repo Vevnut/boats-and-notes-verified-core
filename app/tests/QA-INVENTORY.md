@@ -46,3 +46,27 @@ After the user reported accepted app authentication followed by a database conne
 - Certificate verification remains required. No environment variables, database passwords, schema, or production records were changed.
 - Type checking, production build, connection tests, native ESM checks, and all 10 disposable-database saving regression groups passed.
 - This improves diagnosis only. The actual Vercel-to-Supabase connection is not yet verified.
+
+## Work-order HTTP 412 fix
+
+User confirmed production sign-in and matching records on desktop/mobile after
+installing the Supabase CA certificate. Subsequent work-order edits returned 412.
+
+- Read-only reproduction on the production health endpoint: no version header
+  returns 200; `If-Match: 123:(0,1)` returns Vercel's `PRECONDITION_FAILED` 412;
+  the identical value in `X-Record-Version` returns 200.
+- Client switches record versions to `X-Record-Version`. The server accepts the
+  old header for compatibility, preserves receipt fingerprints, and rejects
+  conflicting version headers.
+- Regression coverage: work-order summary/notes, job title/price, old-header
+  receipt replay through new header, stale/missing/conflicting versions.
+- Browser acceptance passed: desktop inline notes, job title, and flat price;
+  notes persisted after reload and sign-in; separate mobile session read the same
+  notes and saved a new value. Actual outgoing PATCH requests carried only
+  `X-Record-Version`, never `If-Match`.
+- Desktop stale draft rejected after mobile edit, with text retained. Explicit
+  discard then loaded the newest mobile value. Desktop/mobile screenshots
+  reviewed; no page runtime errors or mobile horizontal overflow.
+- Type check, build, connection diagnostics, native ESM checks, and all 11
+  disposable-database regression groups passed.
+- No production customer records will be edited by these tests.

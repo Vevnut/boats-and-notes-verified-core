@@ -48,7 +48,12 @@ export function installReliability(app: Express) {
       const write = !["GET", "HEAD", "OPTIONS"].includes(req.method) && path !== "/api/html-to-pdf";
       const system = path.startsWith("/api/recovery/") || path === "/api/preferences";
       const operation = req.get("X-Operation-Id");
-      const fingerprint = createHash("sha256").update(JSON.stringify([req.method, req.originalUrl, req.body, req.get("If-Match")])).digest("hex");
+      // Accept older open tabs, but new clients must not use the HTTP If-Match
+      // header: the hosting layer can turn a committed success into a 412.
+      const expectedVersion = req.get("X-Record-Version") ?? req.get("If-Match");
+      // Keep the fingerprint identical across the header migration so a save
+      // committed before a hosting-layer 412 can safely replay its receipt.
+      const fingerprint = createHash("sha256").update(JSON.stringify([req.method, req.originalUrl, req.body, expectedVersion])).digest("hex");
       let transaction = false, finishing = false, replay = false;
       const originalEnd = res.end.bind(res);
       res.end = ((chunk?: any, encoding?: any, callback?: any) => {
@@ -99,6 +104,8 @@ export function installReliability(app: Express) {
         await client.query("SELECT set_config('request.jwt.claims',$1,true)", [JSON.stringify({ sub: owner, role: "authenticated" })]);
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`boats-and-notes/${owner}`]);
         if (write && !system) {
+          if (req.get("X-Record-Version") && req.get("If-Match") && req.get("X-Record-Version") !== req.get("If-Match"))
+            return res.status(400).json({ error: "Conflicting save versions. Your changes were not applied. Keep your draft and reopen the record." });
           if (!operation || !/^[a-zA-Z0-9:_-]{8,180}$/.test(operation))
             return res.status(428).json({ error: "Refresh the app before saving. Save protection is required." });
           const receipt = (await sql("SELECT * FROM bn_private.save_receipts WHERE owner_id=$1 AND id=$2", [owner, operation])).rows[0];
@@ -113,7 +120,7 @@ export function installReliability(app: Express) {
           if (match && (["PATCH", "PUT", "DELETE"].includes(req.method) || match[3] === "signature") && collections[match[1]]) {
             const version = await recordVersion(collections[match[1]], Number(match[2]), true);
             if (!version) return res.status(404).json({ error: "This record no longer exists. Your changes were not applied." });
-            if (req.get("If-Match") !== version) return res.status(409).json({
+            if (expectedVersion !== version) return res.status(409).json({
               error: "This record changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
               currentVersion: version,
             });
