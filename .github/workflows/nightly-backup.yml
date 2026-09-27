@@ -1,0 +1,65 @@
+name: Nightly database backup
+
+# Dumps the BoatsandNotes Supabase Postgres database every night, encrypts it,
+# and stores it as a GitHub Actions artifact. This is separate from the app's
+# in-app "Download backup" JSON export and from Supabase's own (paid-tier-only)
+# automated backups - it exists because the project is on Supabase's free plan,
+# which has no automated backups or point-in-time recovery.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   BACKUP_DATABASE_URL - a DIRECT (not pooled) connection string, e.g.
+#     postgresql://postgres:YOUR_DB_PASSWORD@db.xohodqluvqoonqrlamdz.supabase.co:5432/postgres
+#     (Supabase dashboard -> Connect -> "Direct connection". Use the direct
+#     connection, not the Transaction pooler the app itself uses - pg_dump
+#     is not guaranteed to work reliably through the transaction pooler.)
+#   BACKUP_DATABASE_CA_CERT - same Supabase project CA certificate PEM used
+#     for the app's DATABASE_CA_CERT in Vercel.
+#   BACKUP_PASSPHRASE - a strong passphrase you invent, used to symmetrically
+#     encrypt the dump with gpg before it is uploaded. Without this passphrase
+#     the backup file cannot be read, including by anyone with repo access.
+#
+# To restore: download the artifact, then
+#   gpg --batch --passphrase "$BACKUP_PASSPHRASE" -d backup.sql.gz.gpg | gunzip > backup.sql
+#   psql "$SOME_DATABASE_URL" -f backup.sql
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # ~03:17 America/New_York (adjust if your offset changes with DST)
+  workflow_dispatch: {} # lets you trigger a run manually from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client gnupg
+
+      - name: Write CA certificate
+        run: printf '%s' "$DATABASE_CA_CERT" > /tmp/supabase-ca.pem
+        env:
+          DATABASE_CA_CERT: ${{ secrets.BACKUP_DATABASE_CA_CERT }}
+
+      - name: Dump database
+        run: |
+          set -euo pipefail
+          pg_dump "$DATABASE_URL?sslmode=verify-full&sslrootcert=/tmp/supabase-ca.pem" \
+            --no-owner --no-privileges \
+            | gzip > backup.sql.gz
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+
+      - name: Encrypt dump
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            -o backup.sql.gz.gpg backup.sql.gz
+          rm backup.sql.gz
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup.sql.gz.gpg
+          retention-days: 30
