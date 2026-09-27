@@ -79,7 +79,7 @@ For Vercel:
 - Framework: Vite
 - Build command: `npm run build`
 - Output directory: `dist/public`
-- Node.js: 22.x (specified in package.json)
+- Node.js: 24.x (specified in package.json, matches the Vercel project setting)
 - Server function: `api/index.ts`; API routing is supplied in `vercel.json`
 - Do not set `VITE_API_BASE` in Vercel. Production uses same-origin requests.
 
