@@ -4,22 +4,27 @@ import { dismissSaveFailure, queryClient, type SaveOptions } from "@/lib/queryCl
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
-export default function ProtectedField({ label, value, onSave, resource, version, multiline, type = "text", rows = 3, compact, className }: {
+export default function ProtectedField({ label, value, onSave, resource, version, field, multiline, type = "text", rows = 3, compact, className }: {
   label: string; value: string | null | undefined; onSave: (value: string, options: SaveOptions) => Promise<unknown>;
-  resource: string; version?: string; multiline?: boolean; type?: string; rows?: number; compact?: boolean; className?: string;
+  resource: string; version?: string; field?: "description"; multiline?: boolean; type?: string; rows?: number; compact?: boolean; className?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const descriptionField = field ?? (
+    /^\/api\/(wo-jobs|service)\/\d+$/.test(resource) &&
+    ["Description (customer-facing)", "Work Order Description / Summary"].includes(label)
+      ? "description" : undefined
+  );
   return <div className={`min-w-0 ${className ?? ""}`}>
     {!compact && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>}
-    {editing ? <Editor key={resource + label} {...{ label, value, onSave, resource, version, multiline, type, rows }} close={() => setEditing(false)} /> :
+    {editing ? <Editor key={resource + label} {...{ label, value, onSave, resource, version, field: descriptionField, multiline, type, rows }} close={() => setEditing(false)} /> :
       <button title={compact ? "Click to rename" : "Click to edit"} onClick={() => setEditing(true)}
         className="w-full text-left text-sm min-h-[44px] hover:bg-accent/50 rounded" style={{ whiteSpace: "pre-wrap" }}>
         {value || "Not set. Click to add"}
       </button>}
   </div>;
 }
-function Editor({ label, value, onSave, resource, version, multiline, type, rows, close }: any) {
-  const draft = useRecoveryDraft<string>(`${resource}:${label}`, value ?? "", version);
+function Editor({ label, value, onSave, resource, version, field, multiline, type, rows, close }: any) {
+  const draft = useRecoveryDraft<string>(`${resource}:${label}`, value ?? "", version, field);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const save = async () => {
