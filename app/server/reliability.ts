@@ -30,9 +30,8 @@ function decorate(path: string, value: any) {
   return Array.isArray(value) ? value.map(add) : add(value);
 }
 
-// Each request leases its own connection. A database advisory lock, not a
-// process-local queue, coordinates writes across simultaneous Vercel instances.
-// No response body is released until COMMIT succeeds.
+// Each request leases its own connection. A database advisory lock coordinates
+// writes across Vercel instances. No response is released until COMMIT succeeds.
 export function installReliability(app: Express) {
   app.use("/api", async (req: Request, res: Response, next: NextFunction) => {
     let client;
@@ -48,11 +47,8 @@ export function installReliability(app: Express) {
       const write = !["GET", "HEAD", "OPTIONS"].includes(req.method) && path !== "/api/html-to-pdf";
       const system = path.startsWith("/api/recovery/") || path === "/api/preferences";
       const operation = req.get("X-Operation-Id");
-      // Accept older open tabs, but new clients must not use the HTTP If-Match
-      // header: the hosting layer can turn a committed success into a 412.
       const expectedVersion = req.get("X-Record-Version") ?? req.get("If-Match");
-      // Keep the fingerprint identical across the header migration so a save
-      // committed before a hosting-layer 412 can safely replay its receipt.
+      // Fingerprint the original request before removing concurrency metadata.
       const fingerprint = createHash("sha256").update(JSON.stringify([req.method, req.originalUrl, req.body, expectedVersion])).digest("hex");
       let transaction = false, finishing = false, replay = false;
       const originalEnd = res.end.bind(res);
@@ -117,13 +113,35 @@ export function installReliability(app: Express) {
             return receipt.status === 204 ? res.end() : res.json(receipt.body);
           }
           const match = path.match(/^\/api\/([^/]+)\/(\d+)(?:\/(caption|signature))?$/);
+          const hasFieldBase = req.body != null && Object.prototype.hasOwnProperty.call(req.body, "__fieldBase");
+          if (hasFieldBase && !(match && req.method === "PATCH" && !match[3] && ["service", "wo-jobs"].includes(match[1])))
+            return res.status(400).json({ error: "Description save protection is not supported for this request. Your changes were not applied." });
           if (match && (["PATCH", "PUT", "DELETE"].includes(req.method) || match[3] === "signature") && collections[match[1]]) {
-            const version = await recordVersion(collections[match[1]], Number(match[2]), true);
+            const table = collections[match[1]];
+            const version = await recordVersion(table, Number(match[2]), true);
             if (!version) return res.status(404).json({ error: "This record no longer exists. Your changes were not applied." });
-            if (expectedVersion !== version) return res.status(409).json({
+            let baselineMatches = false;
+            if (hasFieldBase) {
+              const baseline = req.body.__fieldBase;
+              if (!baseline || baseline.field !== "description" || typeof baseline.value !== "string" ||
+                typeof req.body.description !== "string" || Object.keys(req.body).some(key => !["description", "__fieldBase"].includes(key)))
+                return res.status(400).json({ error: "Invalid description-only save. Your changes were not applied. Keep your draft." });
+              // table is restricted above to two fixed names; the id is parameterized.
+              const row = (await sql(`SELECT description FROM public.${table} WHERE id=$1`, [Number(match[2])])).rows[0];
+              baselineMatches = !!row && (row.description ?? "") === baseline.value;
+              if (!baselineMatches) return res.status(409).json({
+                error: "This description changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
+                currentVersion: version,
+              });
+            }
+            if (expectedVersion !== version && !baselineMatches) return res.status(409).json({
               error: "This record changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
               currentVersion: version,
             });
+            if (hasFieldBase) {
+              const { __fieldBase, ...body } = req.body;
+              req.body = body;
+            }
           }
         }
         next();

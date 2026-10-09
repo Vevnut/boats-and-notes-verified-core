@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { apiRequest, type SaveOptions } from "./queryClient";
 
-type Draft<T> = { id: string; slot: string; sequence: number; value: T; version?: string; seed?: string; ancestors?: string[] };
-// In-memory fallback survives closing a form or changing screens, not a reload.
+type Draft<T> = { id: string; slot: string; sequence: number; value: T; version?: string; seed?: string; ancestors?: string[]; baseValue?: T };
 const openDrafts = new Map<string, Draft<any>>();
 window.addEventListener("beforeunload", event => {
   if (openDrafts.size) { event.preventDefault(); event.returnValue = ""; }
 });
-export function useRecoveryDraft<T>(slot: string, initial: T, version?: string) {
-  const current = useRef<Draft<T>>({ id: crypto.randomUUID(), slot, sequence: 0, value: initial, version });
+export function useRecoveryDraft<T>(slot: string, initial: T, version?: string, field?: "description") {
+  const current = useRef<Draft<T>>({ id: crypto.randomUUID(), slot, sequence: 0, value: initial, version, baseValue: initial });
   const [value, setValue] = useState(initial);
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState("");
@@ -74,19 +73,19 @@ export function useRecoveryDraft<T>(slot: string, initial: T, version?: string) 
   }, [dirty]);
   const options = async (): Promise<SaveOptions> => {
     const d = current.current;
-    const bytes = new TextEncoder().encode(JSON.stringify([d.seed ?? d.id, d.slot, d.sequence, d.value, d.version]));
+    const bytes = new TextEncoder().encode(JSON.stringify([d.seed ?? d.id, d.slot, d.sequence, d.value, d.version, field, d.baseValue]));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
-    return { version: current.current.version, operationId: "draft_" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("") };
+    return { version: d.version, operationId: "draft_" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join(""),
+      ...(field && typeof d.baseValue === "string" ? { fieldBase: { field, value: d.baseValue } } : {}) };
   };
   const clear = async (saved = false) => {
-    for (const id of [current.current.id, ...(current.current.ancestors ?? [])])
-      {
-        try { await apiRequest("DELETE", `/api/recovery/drafts/${id}`); }
-        catch (error) { if (!saved) throw error; }
-        openDrafts.delete(id);
-      }
+    for (const id of [current.current.id, ...(current.current.ancestors ?? [])]) {
+      try { await apiRequest("DELETE", `/api/recovery/drafts/${id}`); }
+      catch (error) { if (!saved) throw error; }
+      openDrafts.delete(id);
+    }
     setDirty(false); setMessage("");
-    current.current = { id: crypto.randomUUID(), slot, sequence: 0, value: current.current.value, version };
+    current.current = { id: crypto.randomUUID(), slot, sequence: 0, value: current.current.value, version, baseValue: current.current.value };
   };
   const download = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(current.current, null, 2)], { type: "application/json" }));
