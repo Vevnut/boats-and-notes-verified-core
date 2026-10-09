@@ -3,7 +3,7 @@ import { token } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 export const apiUrl = (path: string) => `${API_BASE}${path}`;
-export type SaveOptions = { version?: string; operationId?: string };
+export type SaveOptions = { version?: string; operationId?: string; fieldBase?: { field: "description"; value: string } };
 const versions = new Map<string, string>();
 const retries = new Map<string, { operation: string; version?: string }>();
 export const saveState = { pending: 0, confirmed: "", failures: new Map<string, string>() };
@@ -23,6 +23,9 @@ export async function apiRequest(method: string, url: string, data?: any, option
     options = data.__save;
     const { __save, ...body } = data;
     data = body;
+  }
+  if (options.fieldBase && method === "PATCH") {
+    data = { ...data, __fieldBase: options.fieldBase };
   }
   const write = !["GET", "HEAD"].includes(method);
   const tracked = write && !url.startsWith("/api/recovery/") && url !== "/api/preferences" && url !== "/api/html-to-pdf";
@@ -48,6 +51,8 @@ export async function apiRequest(method: string, url: string, data?: any, option
     });
     if (!res.ok) {
       const body = await res.clone().json().catch(() => ({}));
+      // A rejected conflict is definite, not an uncertain network save.
+      if (tracked && res.status === 409) retries.delete(signature);
       throw new ApiError(body.error || `The server could not complete this request (${res.status}).`, res.status);
     }
     if (res.headers.get("content-type")?.includes("json")) remember(await res.clone().json());
