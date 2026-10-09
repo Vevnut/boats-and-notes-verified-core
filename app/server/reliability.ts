@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createHash } from "node:crypto";
 import { context, current, getPool, recordVersion, sql } from "./postgres.js";
 import { databaseConnectionFailure } from "./database-errors.js";
+import { baselineMatches, baselineSupported, parseFieldBaseline } from "./field-baseline.js";
 
 const collections: Record<string, string> = {
   customers: "customers", boats: "boats", service: "service_records", jobs: "service_records",
@@ -114,27 +115,25 @@ export function installReliability(app: Express) {
           }
           const match = path.match(/^\/api\/([^/]+)\/(\d+)(?:\/(caption|signature))?$/);
           const hasFieldBase = req.body != null && Object.prototype.hasOwnProperty.call(req.body, "__fieldBase");
-          if (hasFieldBase && !(match && req.method === "PATCH" && !match[3] && ["service", "wo-jobs"].includes(match[1])))
-            return res.status(400).json({ error: "Description save protection is not supported for this request. Your changes were not applied." });
+          if (hasFieldBase && !(match && req.method === "PATCH" && !match[3] && baselineSupported(match[1])))
+            return res.status(400).json({ error: "Field save protection is not supported for this request. Your changes were not applied." });
           if (match && (["PATCH", "PUT", "DELETE"].includes(req.method) || match[3] === "signature") && collections[match[1]]) {
             const table = collections[match[1]];
             const version = await recordVersion(table, Number(match[2]), true);
             if (!version) return res.status(404).json({ error: "This record no longer exists. Your changes were not applied." });
-            let baselineMatches = false;
+            let baselineOk = false;
             if (hasFieldBase) {
-              const baseline = req.body.__fieldBase;
-              if (!baseline || baseline.field !== "description" || typeof baseline.value !== "string" ||
-                typeof req.body.description !== "string" || Object.keys(req.body).some(key => !["description", "__fieldBase"].includes(key)))
-                return res.status(400).json({ error: "Invalid description-only save. Your changes were not applied. Keep your draft." });
-              // table is restricted above to two fixed names; the id is parameterized.
-              const row = (await sql(`SELECT description FROM public.${table} WHERE id=$1`, [Number(match[2])])).rows[0];
-              baselineMatches = !!row && (row.description ?? "") === baseline.value;
-              if (!baselineMatches) return res.status(409).json({
-                error: "This description changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
+              const save = parseFieldBaseline(match[1], req.body);
+              if (!save) return res.status(400).json({ error: "Invalid single-field save. Your changes were not applied. Keep your draft." });
+              // The table and column come from fixed allowlists; the id is parameterized.
+              const row = (await sql(`SELECT "${save.column}" AS value FROM public.${table} WHERE id=$1`, [Number(match[2])])).rows[0];
+              baselineOk = !!row && baselineMatches(row.value, save.base);
+              if (!baselineOk) return res.status(409).json({
+                error: "This field changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
                 currentVersion: version,
               });
             }
-            if (expectedVersion !== version && !baselineMatches) return res.status(409).json({
+            if (expectedVersion !== version && !baselineOk) return res.status(409).json({
               error: "This record changed in another window or device. Your changes were not applied. Keep or download your draft, then reopen the latest record.",
               currentVersion: version,
             });

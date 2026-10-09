@@ -1,22 +1,33 @@
 import { useState } from "react";
 import { useRecoveryDraft } from "@/lib/use-recovery-draft";
-import { dismissSaveFailure, queryClient, type SaveOptions } from "@/lib/queryClient";
+import { dismissSaveFailure, queryClient, type BaselineField, type SaveOptions } from "@/lib/queryClient";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
+// Single text fields that save against their own starting value instead of the
+// whole-record version. The server accepts exactly these (server/field-baseline.ts).
+const baselineLabels: Record<string, Record<string, BaselineField>> = {
+  "wo-jobs": {
+    "Description (customer-facing)": "description",
+    "Tech Notes (internal)": "techNotes",
+    "Customer Notes (shows on customer copy)": "customerNotes",
+  },
+  service: {
+    "Work Order Description / Summary": "description",
+    "General Tech Notes (internal)": "techNotes",
+  },
+};
+
 export default function ProtectedField({ label, value, onSave, resource, version, field, multiline, type = "text", rows = 3, compact, className }: {
   label: string; value: string | null | undefined; onSave: (value: string, options: SaveOptions) => Promise<unknown>;
-  resource: string; version?: string; field?: "description"; multiline?: boolean; type?: string; rows?: number; compact?: boolean; className?: string;
+  resource: string; version?: string; field?: BaselineField; multiline?: boolean; type?: string; rows?: number; compact?: boolean; className?: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const descriptionField = field ?? (
-    /^\/api\/(wo-jobs|service)\/\d+$/.test(resource) &&
-    ["Description (customer-facing)", "Work Order Description / Summary"].includes(label)
-      ? "description" : undefined
-  );
+  const kind = /^\/api\/(wo-jobs|service)\/\d+$/.exec(resource)?.[1];
+  const baselineField: BaselineField | undefined = field ?? (kind ? baselineLabels[kind][label] : undefined);
   return <div className={`min-w-0 ${className ?? ""}`}>
     {!compact && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>}
-    {editing ? <Editor key={resource + label} {...{ label, value, onSave, resource, version, field: descriptionField, multiline, type, rows }} close={() => setEditing(false)} /> :
+    {editing ? <Editor key={resource + label} {...{ label, value, onSave, resource, version, field: baselineField, multiline, type, rows }} close={() => setEditing(false)} /> :
       <button title={compact ? "Click to rename" : "Click to edit"} onClick={() => setEditing(true)}
         className="w-full text-left text-sm min-h-[44px] hover:bg-accent/50 rounded" style={{ whiteSpace: "pre-wrap" }}>
         {value || "Not set. Click to add"}

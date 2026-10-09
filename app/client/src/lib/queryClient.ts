@@ -3,7 +3,8 @@ import { token } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 export const apiUrl = (path: string) => `${API_BASE}${path}`;
-export type SaveOptions = { version?: string; operationId?: string; fieldBase?: { field: "description"; value: string } };
+export type BaselineField = "description" | "techNotes" | "customerNotes";
+export type SaveOptions = { version?: string; operationId?: string; fieldBase?: { field: BaselineField; value: string } };
 const versions = new Map<string, string>();
 const retries = new Map<string, { operation: string; version?: string }>();
 export const saveState = { pending: 0, confirmed: "", failures: new Map<string, string>() };

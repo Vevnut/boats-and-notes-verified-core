@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { apiRequest, type SaveOptions } from "./queryClient";
+import { apiRequest, type BaselineField, type SaveOptions } from "./queryClient";
 
 type Draft<T> = { id: string; slot: string; sequence: number; value: T; version?: string; seed?: string; ancestors?: string[]; baseValue?: T };
 const openDrafts = new Map<string, Draft<any>>();
 window.addEventListener("beforeunload", event => {
   if (openDrafts.size) { event.preventDefault(); event.returnValue = ""; }
 });
-export function useRecoveryDraft<T>(slot: string, initial: T, version?: string, field?: "description") {
+export function useRecoveryDraft<T>(slot: string, initial: T, version?: string, field?: BaselineField) {
   const current = useRef<Draft<T>>({ id: crypto.randomUUID(), slot, sequence: 0, value: initial, version, baseValue: initial });
   const [value, setValue] = useState(initial);
   const [ready, setReady] = useState(false);
@@ -22,11 +22,17 @@ export function useRecoveryDraft<T>(slot: string, initial: T, version?: string, 
       const local = [...openDrafts.values()].filter(d => d.slot === slot).at(-1);
       if (local) rows = [local];
       if (rows[0]) {
+        // Drafts saved before baselines existed have none. For a protected field, the
+        // text shown on the record right now is the baseline: the server still refuses
+        // the save if the stored text no longer matches it.
+        const legacy = !!field && rows[0].baseValue === undefined;
         current.current = { ...rows[0], id: crypto.randomUUID(), seed: rows[0].seed ?? rows[0].id,
-          ancestors: [...(rows[0].ancestors ?? []), rows[0].id] };
+          ancestors: [...(rows[0].ancestors ?? []), rows[0].id],
+          baseValue: legacy ? initial : rows[0].baseValue };
         openDrafts.set(current.current.id, current.current);
         setValue(rows[0].value); setDirty(true);
-        setMessage("Recovered unfinished draft. Review it, then click Save.");
+        setMessage(legacy ? "Recovered unfinished draft from before save protection. Saving replaces the text currently on the record."
+          : "Recovered unfinished draft. Review it, then click Save.");
       }
     };
     apiRequest("GET", `/api/recovery/drafts?slot=${encodeURIComponent(slot)}`).then(r => r.json()).then(recover).catch(() => {
