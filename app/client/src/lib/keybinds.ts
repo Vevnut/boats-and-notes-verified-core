@@ -43,7 +43,7 @@ export const DEFAULT_KEYBINDS: KeybindDef[] = [
 
   // Work order detail
   { id: "wo.duplicate", scope: "work-order", description: "Duplicate this work order", defaultChord: "d" },
-  { id: "wo.print", scope: "work-order", description: "Print this work order", defaultChord: "p" },
+  { id: "wo.print", scope: "work-order", description: "Preview the customer copy", defaultChord: "p" },
   { id: "wo.pdf", scope: "work-order", description: "Download PDF", defaultChord: "Shift+P" },
   { id: "wo.signature", scope: "work-order", description: "Focus signature pad", defaultChord: "s" },
   { id: "wo.job.next", scope: "work-order", description: "Focus next job", defaultChord: "j" },

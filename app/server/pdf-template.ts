@@ -55,7 +55,7 @@ export type PdfWoJob = {
   id: number;
   title?: string;
   name?: string;
-  description?: string | null;
+  customerNotes?: string | null;
   pricingType: string;
   laborHours?: number | null;
   laborRate?: number | null;
@@ -86,11 +86,16 @@ export function renderWorkOrderPdfHtml(opts: {
   const jobRows: string[] = [];
 
   if (woJobs.length > 0) {
-    for (const wj of woJobs) {
+    woJobs.forEach((wj, ji) => {
       const jobParts = parts.filter(p => p.jobId === wj.id);
       const laborAmt = wj.pricingType === "flat" ? (wj.flatRate ?? 0) : (wj.laborHours ?? 0) * (wj.laborRate ?? 110);
+      const jobTitle = wj.title ?? wj.name ?? "Job";
+      let jobAmt = laborAmt;
       totalLabor += laborAmt;
-      jobRows.push(`<tr class="job-row"><td colspan="4"><strong>${esc(wj.title ?? wj.name ?? "Job")}</strong>${wj.description ? ` — ${esc(wj.description)}` : ""}</td></tr>`);
+      jobRows.push(`</tbody><tbody class="job-block">`);
+      if (ji > 0) jobRows.push(`<tr class="job-gap"><td colspan="4"></td></tr>`);
+      jobRows.push(`<tr class="job-row"><td colspan="4"><span class="job-num">${ji + 1}</span><strong>${esc(jobTitle)}</strong></td></tr>`);
+      if (wj.customerNotes) jobRows.push(`<tr class="job-notes"><td colspan="4">${esc(wj.customerNotes)}</td></tr>`);
       if (laborAmt > 0) {
         const laborLabel = wj.pricingType === "flat" ? "Flat rate" : `Labor (${wj.laborHours ?? 0} hrs @ ${fmt$(wj.laborRate ?? 110)}/hr)`;
         jobRows.push(`<tr><td class="indent">${esc(laborLabel)}</td><td class="right">—</td><td class="right">—</td><td class="right">${fmt$(laborAmt)}</td></tr>`);
@@ -98,17 +103,24 @@ export function renderWorkOrderPdfHtml(opts: {
       for (const p of jobParts) {
         const lineTotal = p.quantity * p.unitPrice;
         totalParts += lineTotal;
+        jobAmt += lineTotal;
         jobRows.push(`<tr><td class="indent">${esc(p.description)}${p.partNumber ? ` <span class="muted">(${esc(p.partNumber)})</span>` : ""}</td><td class="right">${p.quantity}</td><td class="right">${fmt$(p.unitPrice)}</td><td class="right">${fmt$(lineTotal)}</td></tr>`);
       }
-    }
+      jobRows.push(`<tr class="job-total"><td colspan="3">${esc(jobTitle)} total</td><td class="right">${fmt$(jobAmt)}</td></tr>`);
+    });
     const unassigned = parts.filter(p => !p.jobId);
     if (unassigned.length > 0) {
+      let otherAmt = 0;
+      jobRows.push(`</tbody><tbody class="job-block">`);
+      jobRows.push(`<tr class="job-gap"><td colspan="4"></td></tr>`);
       jobRows.push(`<tr class="job-row"><td colspan="4">Other Parts &amp; Materials</td></tr>`);
       for (const p of unassigned) {
         const lineTotal = p.quantity * p.unitPrice;
         totalParts += lineTotal;
+        otherAmt += lineTotal;
         jobRows.push(`<tr><td class="indent">${esc(p.description)}${p.partNumber ? ` <span class="muted">(${esc(p.partNumber)})</span>` : ""}</td><td class="right">${p.quantity}</td><td class="right">${fmt$(p.unitPrice)}</td><td class="right">${fmt$(lineTotal)}</td></tr>`);
       }
+      jobRows.push(`<tr class="job-total"><td colspan="3">Other parts total</td><td class="right">${fmt$(otherAmt)}</td></tr>`);
     }
   } else {
     // Legacy WO with no job lines — use WO-level labor + flat parts list
@@ -168,7 +180,12 @@ export function renderWorkOrderPdfHtml(opts: {
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   thead th { text-align: left; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: ${NAVY}; padding: 8px 8px; }
   tbody td { padding: 7px 8px; border-bottom: 1px solid #e6eaf2; vertical-align: top; color: #1c2740; }
-  tr.job-row td { background: ${BRAND.blueTint}; color: ${NAVY}; font-weight: 700; padding-top: 9px; border-top: 2px solid ${BLUE}; }
+  .job-block { page-break-inside: avoid; break-inside: avoid; }
+  tr.job-gap td { height: 20px; padding: 0; border: none; background: #fff; }
+  tr.job-row td { background: ${BRAND.blueTint}; color: ${NAVY}; font-weight: 700; padding: 9px 8px; border-top: 3px solid ${NAVY}; border-bottom: 1px solid ${BRAND.rule}; }
+  .job-num { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; border-radius: 10px; background: ${NAVY}; color: #fff; font-size: 10.5px; font-weight: 800; text-align: center; margin-right: 8px; padding: 0 6px; }
+  tr.job-total td { background: ${BRAND.navyTint}; color: ${NAVY}; font-weight: 800; padding: 8px 8px; border-top: 1px solid ${BRAND.rule}; border-bottom: 2px solid ${NAVY}; }
+  tr.job-notes td { font-size: 11.5px; line-height: 1.55; color: #39445c; white-space: pre-wrap; padding: 8px 8px 9px 20px; }
   td.indent { padding-left: 20px; }
   td.right, th.right { text-align: right; }
   .muted { color: ${BRAND.muted}; font-size: 11px; }

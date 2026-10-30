@@ -6,7 +6,7 @@ import {
   User, Anchor, MapPin, Hash, CheckCircle2, CircleDot, Truck,
   FileText, Mail, X, Check, Plus, Trash2, PenLine, AlertTriangle,
   PhoneCall, ChevronRight, ChevronDown, ChevronUp, BookOpen,
-  MoreVertical, Zap, ListChecks, Link2, Copy, FileDown, PenTool,
+  MoreVertical, Zap, ListChecks, Copy, PenTool,
 } from "lucide-react";
 import { apiRequest, apiUrl, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Part, PartsCatalog, WorkOrderJob, CommonJob } from "@shared/schema";
 import { BRAND, BRAND_LOGO_DATA_URL } from "@shared/brand";
 import { SignaturePad } from "@/components/SignaturePad";
@@ -200,8 +201,11 @@ const CUSTOMER_CSS = `
   /* ── Job grouping: keep each job together on the same page ── */
   .job-block { page-break-inside: avoid; break-inside: avoid; }
 
-  /* ── Job header row ── */
-  .job-header td { background: ${BRAND.blueTint}; font-weight: 800; font-size: 12.5px; color: ${BRAND.navy}; padding: 10px 9px; border-top: 2px solid ${BRAND.blue}; border-bottom: 1px solid ${BRAND.rule}; }
+  /* ── Job header row, white gap between jobs, per-job total ── */
+  .job-gap td { height: 20px; padding: 0; border: none; background: #fff; }
+  .job-header td { background: ${BRAND.blueTint}; font-weight: 800; font-size: 12.5px; color: ${BRAND.navy}; padding: 10px 9px; border-top: 3px solid ${BRAND.navy}; border-bottom: 1px solid ${BRAND.rule}; }
+  .job-num { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; border-radius: 10px; background: ${BRAND.navy}; color: #fff; font-size: 10.5px; text-align: center; margin-right: 8px; padding: 0 6px; }
+  .job-total td { background: ${BRAND.navyTint}; font-weight: 800; font-size: 12px; color: ${BRAND.navy}; padding: 8px 9px; border-top: 1px solid ${BRAND.rule}; border-bottom: 2px solid ${BRAND.navy}; }
   .job-sub td { background: ${BRAND.navyTint}; font-size: 11px; color: ${BRAND.navy}; font-weight: 700; padding: 5px 9px; border-bottom: 1px solid ${BRAND.rule}; }
   .job-notes td { background: ${BRAND.navyTint}; font-size: 11px; padding: 3px 9px 7px 24px; border-bottom: 1px solid #e6eaf2; font-style: italic; color: #39445c; }
   .indent td { padding-left: 24px; }
@@ -322,6 +326,16 @@ function esc(s: string | null | undefined): string {
 }
 function fmt$(n: number) { return "$" + n.toFixed(2); }
 
+// Job lines keep one customer-facing text (customer notes). Saved jobs may still carry a
+// separate description, so fold it in above the notes unless the notes already contain it.
+function mergeCustomerText(description: string | null | undefined, notes: string | null | undefined): string {
+  const d = (description ?? "").trim();
+  const n = notes ?? "";
+  if (!d) return n;
+  if (!n.trim()) return d;
+  return n.includes(d) ? n : `${d}\n\n${n}`;
+}
+
 function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer" | "tech"): { html: string; grandTotal: number; totalLabor: number; totalParts: number } {
   let grandTotal = 0;
   let totalLabor = 0;
@@ -343,7 +357,8 @@ function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer"
       totalParts += partsCost;
 
       rows.push(`</tbody><tbody class="job-block">`);
-      rows.push(`<tr class="job-header"><td colspan="4">${jobNum}. ${esc(job.title)}</td></tr>`);
+      if (ji > 0) rows.push(`<tr class="job-gap"><td colspan="4"></td></tr>`);
+      rows.push(`<tr class="job-header"><td colspan="4"><span class="job-num">${jobNum}</span>${esc(job.title)}</td></tr>`);
 
       if (job.customerNotes) {
         rows.push(`<tr><td colspan="4" style="padding:5px 8px 8px 8px;border-bottom:1px solid ${BRAND.rule};"><div style="background:${BRAND.navyTint};border:1px solid ${BRAND.rule};border-radius:6px;padding:8px 12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${BRAND.blue};margin-bottom:3px;">Notes</div><div style="font-size:12px;color:#1c2740;line-height:1.6;white-space:pre-wrap;">${esc(job.customerNotes)}</div></div></td></tr>`);
@@ -365,6 +380,8 @@ function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer"
           rows.push(`<tr class="parts-row"><td>${p.partNumber ? `<span class="mono">#${esc(p.partNumber)}</span> ` : ""}${esc(p.description)}</td><td class="right">${p.quantity}</td><td class="right">${fmt$(p.unitPrice)}</td><td class="right">${fmt$(lt)}</td></tr>`);
         }
       }
+
+      rows.push(`<tr class="job-total"><td colspan="3">${esc(job.title)} total</td><td class="right">${fmt$(laborCost + partsCost)}</td></tr>`);
     }
 
     // Unassigned parts (jobId not matching any woJob — fold in silently, no extra header)
@@ -374,13 +391,18 @@ function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer"
     const accountedIds = new Set(woJobs.flatMap(j => allParts.filter(p => (p as any).jobId === j.id).map(p => p.id)));
     const trueUnassigned = unassigned.filter(p => !accountedIds.has(p.id));
     if (trueUnassigned.length > 0) {
-      rows.push(`<tr class="parts-label"><td colspan="4">Additional Parts &amp; Materials</td></tr>`);
+      let extraTotal = 0;
+      rows.push(`</tbody><tbody class="job-block">`);
+      if (woJobs.length > 0) rows.push(`<tr class="job-gap"><td colspan="4"></td></tr>`);
+      rows.push(`<tr class="job-header"><td colspan="4">Additional Parts &amp; Materials</td></tr>`);
       for (const p of trueUnassigned) {
         const lt = p.quantity * p.unitPrice;
         grandTotal += lt;
         totalParts += lt;
+        extraTotal += lt;
         rows.push(`<tr class="parts-row"><td>${p.partNumber ? `<span class="mono">#${esc(p.partNumber)}</span> ` : ""}${esc(p.description)}</td><td class="right">${p.quantity}</td><td class="right">${fmt$(p.unitPrice)}</td><td class="right">${fmt$(lt)}</td></tr>`);
       }
+      rows.push(`<tr class="job-total"><td colspan="3">Additional parts total</td><td class="right">${fmt$(extraTotal)}</td></tr>`);
     }
 
   } else {
@@ -433,91 +455,8 @@ function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer"
   return { html: rows.join("\n"), grandTotal, totalLabor, totalParts };
 }
 
-async function printCustomer(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
-  const woNum = `WO-${String(job.id).padStart(4, "0")}`;
-  const { html: rows, grandTotal, totalLabor, totalParts } = buildJobRows(woJobs, lineParts, "customer");
-  const legacyLabor = woJobs.length === 0 ? (job.laborHours ?? 0) * (job.laborRate ?? 110) : 0;
-  const subtotal = grandTotal + legacyLabor;
-  const deposit = job.depositAmount ?? 0;
-  const balance = subtotal - deposit;
-  const boatLine = [job.boatYear, job.boatMake, job.boatModel].filter(Boolean).join(" ") || "\u2014";
-
-  const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Copy \u2014 ${woNum}</title>
-<style>${CUSTOMER_CSS}</style></head>
-<body><div class="page">
-
-  ${customerHeaderHtml(woNum, job)}
-
-  <div class="body-pad">
-
-    <div class="info-grid">
-      <div class="info-box">
-        <div class="box-label">Customer</div>
-        <div class="box-primary">${esc(job.customerName)}</div>
-        ${job.customerPhone ? `<div class="box-row">${esc(job.customerPhone)}</div>` : ""}
-        ${job.customerEmail ? `<div class="box-row">${esc(job.customerEmail)}</div>` : ""}
-        ${job.customerAddress ? `<div class="box-row">${esc(job.customerAddress)}</div>` : ""}
-        ${job.customerNotes ? `<div class="box-row" style="font-style:italic;color:${BRAND.muted};margin-top:3px;">${esc(job.customerNotes)}</div>` : ""}
-      </div>
-      <div class="info-box">
-        <div class="box-label">Vessel</div>
-        <div class="box-primary">${esc(boatLine)}</div>
-        ${job.boatColor ? `<div class="box-row">Color: ${esc(job.boatColor)}</div>` : ""}
-        ${job.boatEngineMake ? `<div class="box-row">Engine: ${esc(job.boatEngineMake)}${job.boatEngineModel ? " " + esc(job.boatEngineModel) : ""}</div>` : ""}
-        ${job.boatHullId ? `<div class="box-row">HIN: <span style="font-family:monospace">${esc(job.boatHullId)}</span></div>` : ""}
-        ${job.boatRegistration ? `<div class="box-row">Reg: ${esc(job.boatRegistration)}</div>` : ""}
-      </div>
-      ${job.description ? `<div class="info-box-full"><div class="box-label">Work Description</div><div style="font-weight:600;font-size:13px">${esc(job.description)}</div></div>` : ""}
-    </div>
-
-    <div class="section-label">Work Performed</div>
-    <table>
-      <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Unit Price</th><th class="right">Amount</th></tr></thead>
-      <tbody>
-        ${woJobs.length === 0 && legacyLabor > 0 ? `<tr><td>Labor @ ${fmt$(job.laborRate ?? 110)}/hr</td><td class="right">${job.laborHours}</td><td class="right">${fmt$(job.laborRate ?? 110)}</td><td class="right">${fmt$(legacyLabor)}</td></tr>` : ""}
-        ${rows}
-      </tbody>
-    </table>
-    <div class="totals-block">
-      ${(totalLabor + legacyLabor) > 0 ? `<div class="totals-row total-labor"><span>Total Labor</span><span>${fmt$(totalLabor + legacyLabor)}</span></div>` : ""}
-      ${totalParts > 0 ? `<div class="totals-row total-parts"><span>Total Parts &amp; Materials</span><span>${fmt$(totalParts)}</span></div>` : ""}
-      <div class="totals-row grand-total"><span>Total</span><span>${fmt$(subtotal)}</span></div>
-      ${deposit > 0 ? `<div class="totals-row deposit"><span>Deposit Received</span><span>- ${fmt$(deposit)}</span></div><div class="totals-row balance"><span>Balance Due</span><span>${fmt$(balance)}</span></div>` : ""}
-    </div>
-
-    <div class="sig-block">
-      <div class="sig-line"><div class="sig-rule"></div><div class="sig-caption">Customer Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div></div>
-      <div class="sig-line"><div class="sig-rule"></div><div class="sig-caption">Authorized By &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div></div>
-    </div>
-
-    ${CUSTOMER_FOOTER}
-
-  </div>
-
-</div></body></html>`;
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    // Mobile browsers block blob: URLs in new tabs — fall through to PDF download
-    await downloadCustomerPDF(job, lineParts, woJobs);
-    return;
-  }
-  // Desktop: write into a hidden iframe and trigger the print dialog
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;";
-  document.body.appendChild(iframe);
-  const doc = iframe.contentDocument!;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  iframe.onload = () => {
-    iframe.contentWindow!.focus();
-    iframe.contentWindow!.print();
-    setTimeout(() => document.body.removeChild(iframe), 2000);
-  };
-}
-
-async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
+// The one customer-facing document: the preview, Print and Download PDF all render this HTML.
+function buildCustomerHtml(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]): string {
   const woNum = `WO-${String(job.id).padStart(4, "0")}`;
   const { html: rows, grandTotal, totalLabor, totalParts } = buildJobRows(woJobs, lineParts, "customer");
   const legacyLabor = woJobs.length === 0 ? (job.laborHours ?? 0) * (job.laborRate ?? 110) : 0;
@@ -526,8 +465,8 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
   const balance = subtotal - deposit;
   const boatLine = [job.boatYear, job.boatMake, job.boatModel].filter(Boolean).join(" ") || "—";
 
-  const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>Customer Copy — ${woNum}</title>
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Copy — ${woNum}</title>
 <style>${CUSTOMER_CSS}</style></head>
 <body><div class="page">
 
@@ -580,7 +519,11 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
   </div>
 
 </div></body></html>`;
+}
 
+async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
+  const woNum = `WO-${String(job.id).padStart(4, "0")}`;
+  const html = buildCustomerHtml(job, lineParts, woJobs);
   const res = await apiRequest("POST", "/api/html-to-pdf", { html, filename: `${woNum}-customer-copy` });
 
   if (!res.ok) {
@@ -597,6 +540,52 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Shows the customer copy exactly as the customer receives it, with Print and Download PDF.
+function CustomerCopyDialog({ open, onOpenChange, job, lineParts, woJobs, pdfLoading, onDownload }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  job: OpenJob;
+  lineParts: Part[];
+  woJobs: WorkOrderJob[];
+  pdfLoading: boolean;
+  onDownload: () => void;
+}) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const html = useMemo(() => (open ? buildCustomerHtml(job, lineParts, woJobs) : ""), [open, job, lineParts, woJobs]);
+  // Mobile browsers can't print an embedded frame reliably; they get Download PDF only.
+  const canPrint = !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl w-[calc(100vw-1.5rem)] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <DialogTitle>Customer copy</DialogTitle>
+          <DialogDescription>This is exactly what your customer gets.</DialogDescription>
+        </DialogHeader>
+        <div className="bg-muted/60 px-3 sm:px-5 py-3 border-y">
+          <iframe
+            ref={frameRef}
+            title="Customer copy preview"
+            srcDoc={html}
+            className="w-full h-[65vh] rounded-md bg-white shadow-sm border-0"
+            data-testid="frame-customer-copy"
+          />
+        </div>
+        <DialogFooter className="px-5 py-4 gap-2 sm:gap-2">
+          {canPrint && (
+            <Button variant="outline" onClick={() => { frameRef.current?.contentWindow?.focus(); frameRef.current?.contentWindow?.print(); }} data-testid="button-print-customer-copy">
+              <Printer size={14} className="mr-1.5" />Print
+            </Button>
+          )}
+          <Button onClick={onDownload} disabled={pdfLoading} data-testid="button-download-customer-pdf">
+            <Download size={14} className="mr-1.5" />{pdfLoading ? "Generating..." : "Download PDF"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function printTech(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJob[]) {
@@ -1006,9 +995,9 @@ function JobLineCard({
   const duplicateMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/service/${serviceId}/jobs`, {
       title: `${job.title} (copy)`,
-      description: job.description ?? "",
+      description: "",
       techNotes: job.techNotes ?? "",
-      customerNotes: job.customerNotes ?? "",
+      customerNotes: mergeCustomerText(job.description, job.customerNotes),
       pricingType: job.pricingType,
       laborHours: job.laborHours ?? 0,
       laborRate: job.laborRate ?? defaultLaborRate,
@@ -1130,26 +1119,20 @@ function JobLineCard({
             )}
           </div>
 
-          {/* Description + Notes */}
+          {/* Customer-facing notes (the only job text on the invoice) + internal tech notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
-              label="Description (customer-facing)"
-              value={job.description}
+              label="Customer notes (shows on invoice)"
+              value={job.customerNotes}
               multiline
-              onSave={(v, options) => updateMutation.mutateAsync({ description: v, __save: options })}
+              rows={6}
+              onSave={(v, options) => updateMutation.mutateAsync({ customerNotes: v, __save: options })}
             />
             <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
               label="Tech Notes (internal)"
               value={job.techNotes}
               multiline
               onSave={(v, options) => updateMutation.mutateAsync({ techNotes: v, __save: options })}
-            />
-            <EditableField resource={`/api/wo-jobs/${job.id}`} version={(job as any)._version}
-              label="Customer Notes (shows on customer copy)"
-              value={job.customerNotes}
-              multiline
-              rows={6}
-              onSave={(v, options) => updateMutation.mutateAsync({ customerNotes: v, __save: options })}
             />
           </div>
 
@@ -1278,7 +1261,7 @@ export default function WorkOrderDetailPage() {
 
   const [showCommonPicker, setShowCommonPicker] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [payLinkLoading, setPayLinkLoading] = useState(false);
+  const [showCustomerCopy, setShowCustomerCopy] = useState(false);
 
   const { data: job, isLoading } = useQuery<OpenJob>({
     queryKey: ["/api/service", woId],
@@ -1335,14 +1318,15 @@ export default function WorkOrderDetailPage() {
 
   // ─── Keybinds (Batch 2.5): wo.* scope — registered against existing actions ──
   useKeybind("wo.duplicate", () => setShowDuplicate(true), []);
-  useKeybind("wo.print", () => window.print(), []);
-  useKeybind("wo.pdf", () => {
+  const handleDownloadPdf = () => {
     if (!job || pdfLoading) return;
     setPdfLoading(true);
     downloadCustomerPDF(job, lineParts, woJobs)
       .catch((e: any) => toast({ title: "PDF failed", description: e?.message || "Could not generate PDF", variant: "destructive" }))
       .finally(() => setPdfLoading(false));
-  }, [job, lineParts, woJobs, pdfLoading]);
+  };
+  useKeybind("wo.print", () => setShowCustomerCopy(true), []);
+  useKeybind("wo.pdf", handleDownloadPdf, [job, lineParts, woJobs, pdfLoading]);
   useKeybind("wo.signature", () => {
     const section = document.querySelector('[data-testid="section-signature"]');
     section?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1439,9 +1423,9 @@ export default function WorkOrderDetailPage() {
   function addFromCommon(cj: CommonJob) {
     addJobMutation.mutate({
       title: cj.name,
-      description: cj.description ?? "",
+      description: "",
       techNotes: cj.techNotes ?? "",
-      customerNotes: cj.customerNotes ?? "",
+      customerNotes: mergeCustomerText(cj.description, cj.customerNotes),
       pricingType: cj.pricingType,
       laborHours: cj.laborHours ?? 0,
       laborRate: cj.laborRate ?? defaultLaborRate,
@@ -1471,87 +1455,45 @@ export default function WorkOrderDetailPage() {
           <span className="text-muted-foreground">/</span>
           <span className="font-mono text-sm font-semibold">{woNum}</span>
         </div>
-        {/* Action buttons — 2-col grid on mobile, inline row on desktop */}
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center lg:gap-2">
-          <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => job && printCustomer(job, lineParts, woJobs)}>
-            <Printer size={14} />Customer Copy
-          </Button>
-          <Button
-            variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs"
-            disabled={pdfLoading}
-            onClick={async () => {
-              if (!job) return;
-              setPdfLoading(true);
-              try {
-                await downloadCustomerPDF(job, lineParts, woJobs);
-              } catch (e: any) {
-                toast({ title: "PDF failed", description: e?.message || "Could not generate PDF", variant: "destructive" });
-              } finally {
-                setPdfLoading(false);
-              }
-            }}
-          >
-            <Download size={14} />{pdfLoading ? "Generating..." : "Download PDF"}
-          </Button>
-          <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => job && printTech(job, lineParts, woJobs)}>
-            <Wrench size={14} />Tech Copy
-          </Button>
-          <Button
-            variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs"
-            data-testid="link-server-pdf"
-            onClick={async () => {
-              try {
-                const blob = await (await apiRequest("GET", `/api/work-orders/${woId}/pdf`)).blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a"); a.href = url; a.download = `WO-${woId}.pdf`; a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 30000);
-              } catch (e: any) { toast({ title: "PDF failed", description: e.message, variant: "destructive" }); }
-            }}
-          >
-              <FileDown size={14} />Export PDF
-          </Button>
-          <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => window.print()} data-testid="button-print-wo">
-            <Printer size={14} />Print
-          </Button>
-          <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => setShowDuplicate(true)} data-testid="button-duplicate-wo">
-            <Copy size={14} />Duplicate
-          </Button>
-          <Button
-            variant="outline" size="sm"
-            className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs border-green-600 text-green-700 hover:bg-green-50"
-            disabled={true}
-            title="Payments are not enabled in this version."
-            onClick={async () => {
-              if (!job) return;
-              setPayLinkLoading(true);
-              try {
-                const res = await apiRequest("POST", `/api/square/checkout/${job.id}`);
-                const data = await res.json();
-                if (!res.ok) throw new Error(data?.error || "Failed to create payment link");
-                // Copy to clipboard + open in new tab
-                try { await navigator.clipboard.writeText(data.url); } catch {}
-                window.open(data.url, "_blank");
-                toast({
-                  title: "Payment link created",
-                  description: `$${data.amount.toFixed(2)} link for ${data.woNumber} — copied to clipboard. Send to your customer via text or email.`,
-                });
-              } catch (e: any) {
-                toast({ title: "Payment link failed", description: e?.message || "Could not create Square link", variant: "destructive" });
-              } finally {
-                setPayLinkLoading(false);
-              }
-            }}
-          >
-            <Link2 size={14} />Payments disabled
+        {/* Actions: one customer document, status, and a menu for the rest */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => setShowCustomerCopy(true)} data-testid="button-customer-copy">
+            <FileText size={14} />Customer PDF
           </Button>
           {NEXT_STATUS[job.status] && (
-            <Button size="sm" className="h-10 text-sm lg:h-8 lg:text-xs col-span-1" onClick={() => updateMutation.mutate({ status: NEXT_STATUS[job.status] })}>
-              <CheckCircle2 size={14} className="mr-1" />Mark {STATUS_LABELS[NEXT_STATUS[job.status]]}
+            <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" onClick={() => updateMutation.mutate({ status: NEXT_STATUS[job.status] })}>
+              <CheckCircle2 size={14} />Mark {STATUS_LABELS[NEXT_STATUS[job.status]]}
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10 gap-1.5 text-sm lg:h-8 lg:text-xs" data-testid="button-wo-more">
+                <MoreVertical size={14} />More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => job && printTech(job, lineParts, woJobs)}>
+                <Wrench size={14} className="mr-2" />Tech copy (internal)
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setShowDuplicate(true)} data-testid="button-duplicate-wo">
+                <Copy size={14} className="mr-2" />Duplicate work order
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
+      {job && (
+        <CustomerCopyDialog
+          open={showCustomerCopy}
+          onOpenChange={setShowCustomerCopy}
+          job={job}
+          lineParts={lineParts}
+          woJobs={woJobs}
+          pdfLoading={pdfLoading}
+          onDownload={handleDownloadPdf}
+        />
+      )}
       {job && (
         <DuplicateWODialog open={showDuplicate} onOpenChange={setShowDuplicate} job={job} workOrderId={woId} />
       )}
