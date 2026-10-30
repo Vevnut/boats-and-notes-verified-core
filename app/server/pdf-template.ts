@@ -1,9 +1,10 @@
 // ─── Server-rendered Work Order PDF template (Feature A, Batch 2) ─────────────
-// Kept in its own module to avoid bloating routes.ts. Navy accent per brief spec.
+// Kept in its own module to avoid bloating routes.ts. Logo and colors come from shared/brand.
 
-const NAVY = "#1e3a5f";
-const BBC_PHONE = "(603) 273-2491";
-const BBC_EMAIL = "BradleysBoatCare@gmail.com";
+import { BRAND, BRAND_LOGO_DATA_URL } from "../shared/brand.js";
+
+const NAVY = BRAND.navy;
+const BLUE = BRAND.blue;
 
 function esc(s: any): string {
   if (s === null || s === undefined) return "";
@@ -139,55 +140,71 @@ export function renderWorkOrderPdfHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
-<title>${woNum} — Bradley's Boat Care</title>
+<title>${woNum} — ${esc(BRAND.name)}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { font-family: Georgia, "Times New Roman", serif; color: #1a1a1a; margin: 0; padding: 0; }
-  .page { padding: 42px 48px; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${NAVY}; padding-bottom: 16px; margin-bottom: 20px; }
-  .brand-name { font-size: 26px; font-weight: bold; color: ${NAVY}; }
-  .brand-sub { font-size: 13px; color: #555; margin-top: 2px; font-style: italic; }
-  .doc-meta { text-align: right; font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-  .doc-meta .wo-num { font-size: 18px; font-weight: bold; color: ${NAVY}; font-family: Arial, sans-serif; }
-  .info-grid { display: flex; gap: 24px; margin-bottom: 20px; }
-  .info-box { flex: 1; background: #f7f8fa; border: 1px solid #e2e5e9; border-radius: 6px; padding: 12px 14px; font-family: Arial, sans-serif; }
-  .info-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: ${NAVY}; margin-bottom: 6px; }
-  .info-row { font-size: 12px; color: #333; margin-top: 2px; }
-  .section-title { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: ${NAVY}; border-bottom: 1px solid #d8dce1; padding-bottom: 5px; margin: 22px 0 10px; font-family: Arial, sans-serif; }
-  .desc-block { font-family: Arial, sans-serif; font-size: 12.5px; line-height: 1.5; color: #333; white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
-  thead th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; color: #666; border-bottom: 2px solid #d8dce1; padding: 6px 4px; }
-  tbody td { padding: 6px 4px; border-bottom: 1px solid #eceef1; vertical-align: top; }
-  tr.job-row td { background: #f0f3f6; font-weight: bold; padding-top: 10px; }
-  td.indent { padding-left: 18px; }
+  body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: ${BRAND.ink}; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { padding: 36px 44px; }
+  .header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand-logo { width: 88px; height: 88px; border-radius: 50%; display: block; }
+  .brand-name { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: .01em; color: ${NAVY}; line-height: 1.1; }
+  .brand-sub { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: ${BLUE}; margin-top: 4px; }
+  .brand-contact { font-size: 11px; color: ${BRAND.muted}; margin-top: 7px; line-height: 1.7; }
+  .doc-meta { text-align: right; font-size: 11px; color: ${BRAND.muted}; line-height: 1.8; flex-shrink: 0; }
+  .doc-meta .doc-type { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; color: #fff; background: ${NAVY}; padding: 4px 10px; border-radius: 3px; }
+  .doc-meta .wo-num { font-size: 26px; font-weight: 900; color: ${NAVY}; line-height: 1.2; margin-top: 4px; }
+  .doc-meta strong { color: ${BRAND.ink}; }
+  .header-rule { height: 6px; background: ${NAVY}; border-bottom: 3px solid ${BLUE}; box-sizing: content-box; margin-bottom: 22px; }
+  .info-grid { display: flex; gap: 14px; margin-bottom: 20px; }
+  .info-box { flex: 1; background: ${BRAND.navyTint}; border: 1px solid ${BRAND.rule}; border-top: 3px solid ${NAVY}; border-radius: 8px; padding: 12px 14px; }
+  .info-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: ${BLUE}; margin-bottom: 6px; }
+  .info-row { font-size: 12px; color: #39445c; margin-top: 2px; }
+  .info-row strong { color: ${NAVY}; font-size: 13.5px; }
+  .section-title { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: ${NAVY}; margin: 22px 0 9px; display: flex; align-items: center; gap: 7px; }
+  .section-title::after { content: ''; flex: 1; height: 2px; background: ${BLUE}; opacity: .35; }
+  .desc-block { font-size: 12.5px; line-height: 1.55; color: #1c2740; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { text-align: left; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: ${NAVY}; padding: 8px 8px; }
+  tbody td { padding: 7px 8px; border-bottom: 1px solid #e6eaf2; vertical-align: top; color: #1c2740; }
+  tr.job-row td { background: ${BRAND.blueTint}; color: ${NAVY}; font-weight: 700; padding-top: 9px; border-top: 2px solid ${BLUE}; }
+  td.indent { padding-left: 20px; }
   td.right, th.right { text-align: right; }
-  .muted { color: #888; font-size: 11px; }
-  .totals { margin-top: 16px; margin-left: auto; width: 280px; font-family: Arial, sans-serif; font-size: 12.5px; }
-  .totals-row { display: flex; justify-content: space-between; padding: 4px 0; }
-  .totals-row.grand { border-top: 2px solid ${NAVY}; margin-top: 4px; padding-top: 8px; font-weight: bold; font-size: 14px; color: ${NAVY}; }
-  .totals-row.balance { font-weight: bold; color: #b34700; }
+  .muted { color: ${BRAND.muted}; font-size: 11px; }
+  .totals { margin-top: 14px; margin-left: auto; width: 290px; font-size: 12.5px; border: 1px solid ${BRAND.rule}; border-radius: 8px; overflow: hidden; }
+  .totals-row { display: flex; justify-content: space-between; padding: 7px 12px; color: #39445c; }
+  .totals-row.grand { border-top: 2px solid ${NAVY}; background: ${BRAND.navyTint}; font-weight: 800; font-size: 14.5px; color: ${NAVY}; padding: 9px 12px; }
+  .totals-row.balance { font-weight: 900; font-size: 14.5px; color: #fff; background: ${NAVY}; border-top: 3px solid ${BLUE}; padding: 10px 12px; }
   .sig-box { margin-top: 34px; }
-  .sig-img { max-height: 70px; border-bottom: 1px solid #999; }
-  .sig-meta { font-family: Arial, sans-serif; font-size: 11px; color: #555; margin-top: 4px; }
-  .sig-rule { border-top: 1px solid #999; width: 320px; }
-  .sig-caption { font-family: Arial, sans-serif; font-size: 10px; color: #777; margin-top: 4px; }
-  .footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #d8dce1; text-align: center; font-family: Arial, sans-serif; font-size: 10.5px; color: #777; }
+  .sig-img { max-height: 70px; border-bottom: 1px solid ${NAVY}; }
+  .sig-meta { font-size: 11px; color: ${BRAND.muted}; margin-top: 4px; }
+  .sig-rule { border-top: 1px solid ${NAVY}; width: 320px; }
+  .sig-caption { font-size: 10px; color: ${BRAND.muted}; margin-top: 4px; }
+  .footer { margin-top: 36px; padding-top: 12px; border-top: 2px solid ${NAVY}; text-align: center; font-size: 10px; color: ${BRAND.muted}; line-height: 1.7; }
+  .footer strong { color: ${NAVY}; }
 </style>
 </head>
 <body><div class="page">
 
   <div class="header">
-    <div>
-      <div class="brand-name">Bradley's Boat Care</div>
-      <div class="brand-sub">Marine Service Work Order</div>
+    <div class="brand">
+      <img class="brand-logo" src="${BRAND_LOGO_DATA_URL}" alt="${esc(BRAND.name)} logo" />
+      <div>
+        <div class="brand-name">${esc(BRAND.name)}</div>
+        <div class="brand-sub">${BRAND.tagline} &bull; ${BRAND.town}</div>
+        <div class="brand-contact">${BRAND.phone} &bull; ${BRAND.email}<br>${BRAND.website}</div>
+      </div>
     </div>
     <div class="doc-meta">
+      <div class="doc-type">Work Order</div>
       <div class="wo-num">${woNum}</div>
-      <div>Date: ${esc(job.date)}</div>
-      ${job.dueDate ? `<div>Due: ${esc(job.dueDate)}</div>` : ""}
+      <div>Date: <strong>${esc(job.date)}</strong></div>
+      ${job.dueDate ? `<div>Due: <strong>${esc(job.dueDate)}</strong></div>` : ""}
       <div>Status: ${esc(job.status)}</div>
     </div>
   </div>
+  <div class="header-rule"></div>
 
   <div class="info-grid">
     <div class="info-box">
@@ -209,7 +226,7 @@ export function renderWorkOrderPdfHtml(opts: {
   ${job.description || job.techNotes ? `
   <div class="section-title">Work Performed</div>
   ${job.description ? `<div class="desc-block">${esc(job.description)}</div>` : ""}
-  ${job.techNotes ? `<div class="desc-block" style="margin-top:6px;color:#666;"><em>Notes: ${esc(job.techNotes)}</em></div>` : ""}
+  ${job.techNotes ? `<div class="desc-block" style="margin-top:6px;color:${BRAND.muted};"><em>Notes: ${esc(job.techNotes)}</em></div>` : ""}
   ` : ""}
 
   <div class="section-title">Jobs &amp; Parts</div>
@@ -230,7 +247,8 @@ export function renderWorkOrderPdfHtml(opts: {
   ${signatureBlock}
 
   <div class="footer">
-    Bradley's Boat Care &bull; Conway, NH &bull; ${BBC_PHONE} &bull; ${BBC_EMAIL}<br>
+    <strong>${esc(BRAND.name)}</strong> &bull; ${BRAND.tagline} &bull; ${BRAND.town}<br>
+    ${BRAND.phone} &bull; ${BRAND.email} &bull; ${BRAND.website}<br>
     Thank you for your business.
   </div>
 

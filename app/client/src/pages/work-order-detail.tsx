@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useState, useEffect } from "react";
 import type { Part, PartsCatalog, WorkOrderJob, CommonJob } from "@shared/schema";
+import { BRAND, BRAND_LOGO_DATA_URL } from "@shared/brand";
 import { SignaturePad } from "@/components/SignaturePad";
 import { useKeybind, useClickBind } from "@/lib/keybind-provider";
 
@@ -146,112 +147,128 @@ function DuplicateWODialog({ open, onOpenChange, job, workOrderId }: {
 }
 
 // ─── Print helpers ─────────────────────────────────────────────────────────────
-const BBC_PHONE = "(603) 273-2491";
-const BBC_EMAIL = "BradleysBoatCare@gmail.com";
+const BBC_PHONE = BRAND.phone;
+const BBC_EMAIL = BRAND.email;
 
 const CUSTOMER_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0f1f2e; font-size: 13px; line-height: 1.55; background: #fff; }
+  body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: ${BRAND.ink}; font-size: 13px; line-height: 1.55; background: #fff; }
   .page { max-width: 780px; margin: 0 auto; padding: 0 0 48px 0; }
 
-  /* ── Header band ── */
-  .header-band {
-    background: linear-gradient(135deg, #05394a 0%, #076579 55%, #0e8fa8 100%);
-    padding: 28px 40px 24px;
-    position: relative;
-    overflow: hidden;
-    margin-bottom: 0;
-  }
-  .header-wave {
-    position: absolute; bottom: -1px; left: 0; width: 100%;
-    line-height: 0;
-  }
-  .header-inner { display: flex; align-items: flex-start; justify-content: space-between; position: relative; z-index: 1; }
-  .brand-name { font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: #fff; }
-  .brand-tagline { font-size: 10px; color: rgba(255,255,255,.7); margin-top: 3px; text-transform: uppercase; letter-spacing: .1em; }
-  .brand-contact { font-size: 11px; color: rgba(255,255,255,.85); margin-top: 8px; line-height: 1.8; }
-  .doc-title { text-align: right; }
-  .doc-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: rgba(255,255,255,.7); margin-bottom: 4px; }
-  .doc-num { font-size: 30px; font-weight: 800; color: #fff; letter-spacing: -.5px; }
-  .doc-meta { font-size: 10.5px; color: rgba(255,255,255,.75); margin-top: 5px; line-height: 1.9; }
+  /* ── Header: logo + business, document number ── */
+  .header-band { padding: 26px 40px 18px; }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand-logo { width: 92px; height: 92px; border-radius: 50%; display: block; }
+  .brand-name { font-size: 25px; font-weight: 900; letter-spacing: .01em; text-transform: uppercase; color: ${BRAND.navy}; line-height: 1.1; }
+  .brand-tagline { font-size: 10px; font-weight: 700; color: ${BRAND.blue}; margin-top: 4px; text-transform: uppercase; letter-spacing: .14em; }
+  .brand-contact { font-size: 11px; color: ${BRAND.muted}; margin-top: 7px; line-height: 1.7; }
+  .doc-title { text-align: right; flex-shrink: 0; }
+  .doc-type { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; color: #fff; background: ${BRAND.navy}; padding: 4px 10px; border-radius: 3px; margin-bottom: 6px; }
+  .doc-num { font-size: 28px; font-weight: 900; color: ${BRAND.navy}; letter-spacing: -.5px; line-height: 1.1; }
+  .doc-meta { font-size: 10.5px; color: ${BRAND.muted}; margin-top: 5px; line-height: 1.8; }
+  .doc-meta strong { color: ${BRAND.ink}; }
+  .header-rule { height: 6px; background: ${BRAND.navy}; border-bottom: 3px solid ${BRAND.blue}; box-sizing: content-box; }
 
   /* ── Body padding ── */
   .body-pad { padding: 0 40px; }
 
   /* ── Banner ── */
-  .banner { text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
-    padding: 7px 12px; border-radius: 0; margin-bottom: 0;
-    background: #e0f4f8; color: #076579; border-bottom: 2px solid #b0dce8; }
+  .banner { text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    padding: 6px 12px; background: ${BRAND.navy}; color: #fff; }
 
   /* ── Info grid ── */
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
-  .info-box { background: #f3fafc; border: 1px solid #cbe8f0; border-radius: 8px; padding: 13px 15px; border-left: 3px solid #076579; }
-  .info-box-full { grid-column: 1 / -1; background: #f3fafc; border: 1px solid #cbe8f0; border-radius: 8px; padding: 13px 15px; border-left: 3px solid #076579; }
-  .box-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #076579; margin-bottom: 6px; }
-  .box-primary { font-size: 14px; font-weight: 700; color: #0d2535; }
-  .box-row { font-size: 11.5px; color: #3a5468; margin-top: 3px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0 20px; }
+  .info-box, .info-box-full { background: ${BRAND.navyTint}; border: 1px solid ${BRAND.rule}; border-radius: 8px; padding: 13px 15px; border-top: 3px solid ${BRAND.navy}; }
+  .info-box-full { grid-column: 1 / -1; border-top-color: ${BRAND.blue}; background: ${BRAND.blueTint}; }
+  .box-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: ${BRAND.blue}; margin-bottom: 6px; }
+  .box-primary { font-size: 14px; font-weight: 700; color: ${BRAND.navy}; }
+  .box-row { font-size: 11.5px; color: #39445c; margin-top: 3px; }
 
   /* ── Section label ── */
-  .section-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #076579; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
-  .section-label::after { content: ''; flex: 1; height: 1px; background: #cbe8f0; }
+  .section-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: ${BRAND.navy}; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .section-label::after { content: ''; flex: 1; height: 2px; background: ${BRAND.blue}; opacity: .35; }
 
   /* ── Table ── */
   table { width: 100%; border-collapse: collapse; }
-  thead th { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #076579; background: #eaf6f9; border-bottom: 2px solid #b0dce8; padding: 7px 9px; text-align: left; }
-  tbody td { padding: 8px 9px; border-bottom: 1px solid #e8f2f5; font-size: 12px; vertical-align: top; color: #1a3040; }
+  thead th { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: ${BRAND.navy}; padding: 8px 9px; text-align: left; }
+  tbody td { padding: 8px 9px; border-bottom: 1px solid #e6eaf2; font-size: 12px; vertical-align: top; color: #1c2740; }
   .right { text-align: right; }
-  .mono { font-family: 'Courier New', monospace; font-size: 10.5px; color: #5a7a8a; }
+  .mono { font-family: 'Courier New', monospace; font-size: 10.5px; color: ${BRAND.muted}; }
 
   /* ── Job grouping: keep each job together on the same page ── */
   .job-block { page-break-inside: avoid; break-inside: avoid; }
 
   /* ── Job header row ── */
-  .job-header td { background: linear-gradient(90deg, #076579 0%, #0e8fa8 100%); font-weight: 700; font-size: 12px; color: #fff; padding: 9px 9px; border: none; }
-  .job-sub td { background: #f0f9fb; font-size: 11px; color: #076579; font-weight: 700; padding: 5px 9px; border-bottom: 1px solid #d0eaf0; }
-  .job-notes td { background: #f3fafc; font-size: 11px; padding: 3px 9px 7px 24px; border-bottom: 1px solid #e8f2f5; font-style: italic; color: #2a5870; }
+  .job-header td { background: ${BRAND.blueTint}; font-weight: 800; font-size: 12.5px; color: ${BRAND.navy}; padding: 10px 9px; border-top: 2px solid ${BRAND.blue}; border-bottom: 1px solid ${BRAND.rule}; }
+  .job-sub td { background: ${BRAND.navyTint}; font-size: 11px; color: ${BRAND.navy}; font-weight: 700; padding: 5px 9px; border-bottom: 1px solid ${BRAND.rule}; }
+  .job-notes td { background: ${BRAND.navyTint}; font-size: 11px; padding: 3px 9px 7px 24px; border-bottom: 1px solid #e6eaf2; font-style: italic; color: #39445c; }
   .indent td { padding-left: 24px; }
 
   /* Labor vs Parts row distinction (customer copy only) */
-  .labor-row td { background: #fffbf2; border-bottom: 1px solid #ffe8b0; padding-left: 24px; }
-  .labor-row td:first-child { border-left: 3px solid #e8a800; }
-  .labor-label td { background: #fff8e1; font-size: 9px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .1em; color: #a06800; padding: 4px 9px 4px 24px; border-bottom: 1px solid #ffe8b0; }
-  .parts-row td { background: #f3fafc; border-bottom: 1px solid #c8e8f0; padding-left: 24px; }
-  .parts-row td:first-child { border-left: 3px solid #076579; }
-  .parts-label td { background: #eaf6f9; font-size: 9px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .1em; color: #076579; padding: 4px 9px 4px 24px; border-bottom: 1px solid #c8e8f0; }
+  .labor-row td { background: #fff; padding-left: 24px; }
+  .labor-row td:first-child { border-left: 3px solid ${BRAND.blue}; }
+  .labor-label td { background: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .12em; color: ${BRAND.blue}; padding: 6px 9px 3px 24px; border-bottom: none; }
+  .parts-row td { background: #fff; padding-left: 24px; }
+  .parts-row td:first-child { border-left: 3px solid ${BRAND.navy}; }
+  .parts-label td { background: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .12em; color: ${BRAND.navy}; padding: 6px 9px 3px 24px; border-bottom: none; }
 
-  /* ── Totals ── */
   /* ── Totals block (div-based, renders once after table) ── */
-  .totals-block { width: 100%; margin-top: 0; }
-  .totals-row { display: flex; justify-content: space-between; padding: 8px 9px; font-size: 13px; }
-  .totals-row.total-labor { border-top: 2px solid #e8d080; font-weight: 700; background: #fffbf2; color: #7a5000; }
-  .totals-row.total-parts { border-top: 1px solid #c8e8f0; font-weight: 700; background: #f3fafc; color: #076579; }
-  .totals-row.grand-total { border-top: 2px solid #076579; font-weight: 800; font-size: 15px; padding: 11px 9px; background: #f0f9fb; color: #05394a; }
-  .totals-row.deposit { border-bottom: 1px dashed #b0d0dc; font-size: 12px; color: #5a7a8a; }
-  .totals-row.balance { font-weight: 800; font-size: 15px; color: #fff; padding: 10px 9px; background: linear-gradient(90deg, #076579, #0e8fa8); }
+  .totals-block { width: 300px; margin: 14px 0 0 auto; border: 1px solid ${BRAND.rule}; border-radius: 8px; overflow: hidden; }
+  .totals-row { display: flex; justify-content: space-between; padding: 7px 12px; font-size: 12.5px; color: #39445c; }
+  .totals-row.total-labor, .totals-row.total-parts { border-bottom: 1px solid #e6eaf2; }
+  .totals-row.grand-total { font-weight: 800; font-size: 15px; padding: 10px 12px; background: ${BRAND.navyTint}; color: ${BRAND.navy}; border-top: 2px solid ${BRAND.navy}; }
+  .totals-row.deposit { font-size: 12px; color: ${BRAND.muted}; border-top: 1px dashed ${BRAND.rule}; }
+  .totals-row.balance { font-weight: 900; font-size: 15px; color: #fff; padding: 11px 12px; background: ${BRAND.navy}; border-top: 3px solid ${BRAND.blue}; }
 
   /* ── Customer notes box ── */
-  .customer-note-box { background: #e8f6fb; border: 1px solid #9fd0e0; border-radius: 6px; padding: 10px 13px; margin: 0; }
-  .customer-note-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #076579; margin-bottom: 4px; }
-  .customer-note-body { font-size: 12px; color: #1a3a52; line-height: 1.6; white-space: pre-wrap; }
+  .customer-note-box { background: ${BRAND.blueTint}; border: 1px solid ${BRAND.rule}; border-radius: 6px; padding: 10px 13px; margin: 0; }
+  .customer-note-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: ${BRAND.blue}; margin-bottom: 4px; }
+  .customer-note-body { font-size: 12px; color: #1c2740; line-height: 1.6; white-space: pre-wrap; }
 
   /* ── Signature block ── */
-  .sig-block { display: flex; gap: 36px; margin-top: 32px; margin-bottom: 20px; }
+  .sig-block { display: flex; gap: 36px; margin-top: 36px; margin-bottom: 20px; }
   .sig-line { flex: 1; }
-  .sig-rule { border-top: 1px solid #8aabba; margin-bottom: 5px; }
-  .sig-caption { font-size: 10px; color: #5a7a8a; }
+  .sig-rule { border-top: 1px solid ${BRAND.navy}; margin-bottom: 5px; }
+  .sig-caption { font-size: 10px; color: ${BRAND.muted}; }
 
   /* ── Footer ── */
-  .footer { border-top: 1px solid #cbe8f0; padding-top: 12px; font-size: 10px; color: #7a9aaa; text-align: center; margin-top: 16px; }
-  .footer strong { color: #076579; }
+  .footer { border-top: 2px solid ${BRAND.navy}; padding-top: 12px; font-size: 10px; color: ${BRAND.muted}; text-align: center; margin-top: 16px; line-height: 1.7; }
+  .footer strong { color: ${BRAND.navy}; }
 
   @media print {
     body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .page { padding-bottom: 20px; }
   }
 `;
+
+// Customer-copy header: logo badge + business details on the left, document number on the right.
+function customerHeaderHtml(woNum: string, job: OpenJob): string {
+  return `<div class="banner">Customer Copy</div>
+  <div class="header-band">
+    <div class="header-inner">
+      <div class="brand">
+        <img class="brand-logo" src="${BRAND_LOGO_DATA_URL}" alt="${BRAND.name} logo">
+        <div>
+          <div class="brand-name">${esc(BRAND.name)}</div>
+          <div class="brand-tagline">${BRAND.tagline} &bull; ${BRAND.town}</div>
+          <div class="brand-contact">${BRAND.phone} &bull; ${BRAND.email}<br>${BRAND.website}</div>
+        </div>
+      </div>
+      <div class="doc-title">
+        <div class="doc-type">Work Order</div>
+        <div class="doc-num">${woNum}</div>
+        <div class="doc-meta">Date: <strong>${esc(job.date)}</strong>${job.dueDate ? `<br>Due: <strong>${esc(job.dueDate)}</strong>` : ""}<br>Status: ${esc(STATUS_LABELS[job.status] ?? job.status ?? "Open")}</div>
+      </div>
+    </div>
+  </div>
+  <div class="header-rule"></div>`;
+}
+
+const CUSTOMER_FOOTER = `<div class="footer"><strong>${esc(BRAND.name)}</strong> &bull; ${BRAND.tagline} &bull; ${BRAND.town}<br>${BRAND.phone} &bull; ${BRAND.email} &bull; ${BRAND.website}<br>Thank you for your business.</div>`;
 
 const TECH_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -329,7 +346,7 @@ function buildJobRows(woJobs: WorkOrderJob[], allParts: Part[], mode: "customer"
       rows.push(`<tr class="job-header"><td colspan="4">${jobNum}. ${esc(job.title)}</td></tr>`);
 
       if (job.customerNotes) {
-        rows.push(`<tr><td colspan="4" style="padding:5px 8px 8px 8px;border-bottom:1px solid #d0eaf0;"><div style="background:#f0f8ff;border:1px solid #bcd4e8;border-radius:6px;padding:8px 12px;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#1d5c8a;margin-bottom:3px;">Notes</div><div style="font-size:12px;color:#1a3a52;line-height:1.6;white-space:pre-wrap;">${esc(job.customerNotes)}</div></div></td></tr>`);
+        rows.push(`<tr><td colspan="4" style="padding:5px 8px 8px 8px;border-bottom:1px solid ${BRAND.rule};"><div style="background:${BRAND.navyTint};border:1px solid ${BRAND.rule};border-radius:6px;padding:8px 12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${BRAND.blue};margin-bottom:3px;">Notes</div><div style="font-size:12px;color:#1c2740;line-height:1.6;white-space:pre-wrap;">${esc(job.customerNotes)}</div></div></td></tr>`);
       }
 
       if (laborCost > 0) {
@@ -430,27 +447,7 @@ async function printCustomer(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJ
 <style>${CUSTOMER_CSS}</style></head>
 <body><div class="page">
 
-  <div class="banner">Customer Copy</div>
-
-  <div class="header-band">
-    <div class="header-wave">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 28" preserveAspectRatio="none" style="display:block;width:100%;height:28px">
-        <path d="M0,14 C150,28 300,0 450,14 C600,28 750,0 900,14 C1050,28 1150,6 1200,14 L1200,28 L0,28 Z" fill="#ffffff"/>
-      </svg>
-    </div>
-    <div class="header-inner">
-      <div>
-        <div class="brand-name">Bradley's Boat Care</div>
-        <div class="brand-tagline">Marine Service &amp; Repair</div>
-        <div class="brand-contact">${BBC_PHONE}<br>${BBC_EMAIL}</div>
-      </div>
-      <div class="doc-title">
-        <div class="doc-type">Work Order</div>
-        <div class="doc-num">${woNum}</div>
-        <div class="doc-meta">Date: ${esc(job.date)}${job.dueDate ? `<br>Due: ${esc(job.dueDate)}` : ""}<br>Status: ${esc(job.status ?? "open")}</div>
-      </div>
-    </div>
-  </div>
+  ${customerHeaderHtml(woNum, job)}
 
   <div class="body-pad">
 
@@ -461,7 +458,7 @@ async function printCustomer(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJ
         ${job.customerPhone ? `<div class="box-row">${esc(job.customerPhone)}</div>` : ""}
         ${job.customerEmail ? `<div class="box-row">${esc(job.customerEmail)}</div>` : ""}
         ${job.customerAddress ? `<div class="box-row">${esc(job.customerAddress)}</div>` : ""}
-        ${job.customerNotes ? `<div class="box-row" style="font-style:italic;color:#5a7a8a;margin-top:3px;">${esc(job.customerNotes)}</div>` : ""}
+        ${job.customerNotes ? `<div class="box-row" style="font-style:italic;color:${BRAND.muted};margin-top:3px;">${esc(job.customerNotes)}</div>` : ""}
       </div>
       <div class="info-box">
         <div class="box-label">Vessel</div>
@@ -494,7 +491,7 @@ async function printCustomer(job: OpenJob, lineParts: Part[], woJobs: WorkOrderJ
       <div class="sig-line"><div class="sig-rule"></div><div class="sig-caption">Authorized By &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div></div>
     </div>
 
-    <div class="footer">Bradley's Boat Care &bull; ${BBC_PHONE} &bull; ${BBC_EMAIL}<br>Thank you for your business.</div>
+    ${CUSTOMER_FOOTER}
 
   </div>
 
@@ -534,27 +531,7 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
 <style>${CUSTOMER_CSS}</style></head>
 <body><div class="page">
 
-  <div class="banner">Customer Copy</div>
-
-  <div class="header-band">
-    <div class="header-wave">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 28" preserveAspectRatio="none" style="display:block;width:100%;height:28px">
-        <path d="M0,14 C150,28 300,0 450,14 C600,28 750,0 900,14 C1050,28 1150,6 1200,14 L1200,28 L0,28 Z" fill="#ffffff"/>
-      </svg>
-    </div>
-    <div class="header-inner">
-      <div>
-        <div class="brand-name">Bradley's Boat Care</div>
-        <div class="brand-tagline">Marine Service &amp; Repair</div>
-        <div class="brand-contact">${BBC_PHONE}<br>${BBC_EMAIL}</div>
-      </div>
-      <div class="doc-title">
-        <div class="doc-type">Work Order</div>
-        <div class="doc-num">${woNum}</div>
-        <div class="doc-meta">Date: ${esc(job.date)}${job.dueDate ? `<br>Due: ${esc(job.dueDate)}` : ""}<br>Status: ${esc(job.status ?? "open")}</div>
-      </div>
-    </div>
-  </div>
+  ${customerHeaderHtml(woNum, job)}
 
   <div class="body-pad">
 
@@ -565,7 +542,7 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
         ${job.customerPhone ? `<div class="box-row">${esc(job.customerPhone)}</div>` : ""}
         ${job.customerEmail ? `<div class="box-row">${esc(job.customerEmail)}</div>` : ""}
         ${job.customerAddress ? `<div class="box-row">${esc(job.customerAddress)}</div>` : ""}
-        ${job.customerNotes ? `<div class="box-row" style="font-style:italic;color:#5a7a8a;margin-top:3px;">${esc(job.customerNotes)}</div>` : ""}
+        ${job.customerNotes ? `<div class="box-row" style="font-style:italic;color:${BRAND.muted};margin-top:3px;">${esc(job.customerNotes)}</div>` : ""}
       </div>
       <div class="info-box">
         <div class="box-label">Vessel</div>
@@ -598,7 +575,7 @@ async function downloadCustomerPDF(job: OpenJob, lineParts: Part[], woJobs: Work
       <div class="sig-line"><div class="sig-rule"></div><div class="sig-caption">Authorized By &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div></div>
     </div>
 
-    <div class="footer">Bradley's Boat Care &bull; ${BBC_PHONE} &bull; ${BBC_EMAIL}<br>Thank you for your business.</div>
+    ${CUSTOMER_FOOTER}
 
   </div>
 
